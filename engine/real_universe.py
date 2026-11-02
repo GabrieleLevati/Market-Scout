@@ -220,12 +220,16 @@ REAL_SPECS = [
     ("IBE.MC", "Iberdrola", "Azioni", "Europa", "Utilities", "Large cap", "Iberdrola"),
     ("NESN.SW", "Nestlé", "Azioni", "Europa", "Consumer", "Mega cap", "Nestle"),
     ("NOVN.SW", "Novartis", "Azioni", "Europa", "Healthcare", "Mega cap", "Novartis"),
-    ("ROG.SW", "Roche", "Azioni", "Europa", "Healthcare", "Mega cap", "Roche Holding"),
+    # Roche e STMicroelectronics con la quotazione americana: i simboli
+    # europei (ROG.SW, STM.MI) rispondono 404 su Yahoo. Il mercato resta
+    # quello della societa', come per gli altri ADR.
+    ("RHHBY", "Roche (ADR)", "Azioni", "Europa", "Healthcare", "Mega cap",
+     "Roche Holding"),
     ("UBSG.SW", "UBS Group", "Azioni", "Europa", "Finanza", "Large cap", "UBS Group"),
     ("ABBN.SW", "ABB", "Azioni", "Europa", "Industriale", "Large cap", "ABB Ltd"),
     ("ENI.MI", "Eni", "Azioni", "Europa", "Energia", "Large cap", "Eni SpA"),
     ("UCG.MI", "UniCredit", "Azioni", "Europa", "Finanza", "Large cap", "UniCredit"),
-    ("STM.MI", "STMicroelectronics", "Azioni", "Europa", "AI", "Large cap",
+    ("STM", "STMicroelectronics", "Azioni", "Europa", "AI", "Large cap",
      "STMicroelectronics"),
     ("PRY.MI", "Prysmian", "Azioni", "Europa", "Industriale", "Mid cap", "Prysmian"),
     ("ASM.AS", "ASM International", "Azioni", "Europa", "AI", "Large cap",

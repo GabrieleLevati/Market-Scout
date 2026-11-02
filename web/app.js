@@ -495,26 +495,6 @@ const TINTE = { 'Azioni': 1, 'ETF': 2, 'Obbligazioni': 3, 'Crypto': 4,
                 'Commodities': 5, 'REIT': 6 };
 const tinta = (classe) => 'tp' + (TINTE[classe] || 0);
 
-/* La banda dei tre numeri in cima. Non e' decorazione: dice in un colpo
-   d'occhio quanto c'e' e quanto vale il meglio di oggi, che e' la prima cosa
-   che uno cerca aprendo l'app. */
-function bandaNumeri() {
-  const o = D.opportunita || {};
-  const lista = o.lista || [];
-  const oss = o.osservati || [];
-  const miglior = lista.concat(oss).reduce((m, x) => Math.max(m, x.score || 0), 0);
-  const celle = [
-    [lista.length, lista.length === 1 ? 'opportunità' : 'opportunità'],
-    [oss.length, 'da approfondire'],
-    [miglior || '–', 'voto più alto'],
-  ];
-  return `<div class="banda" style="--i:<#i>">
-    ${celle.map(([n, k]) => `<div class="bt${n ? '' : ' vuota'}">
-      <div class="n">${esc(String(n))}</div><span class="k">${esc(k)}</span>
-    </div>`).join('')}
-  </div>`;
-}
-
 /* L'etichetta in cima alla card.
    Il motore classifica per fascia di punteggio, e per un 94 scrive
    "Opportunità eccezionale". Giusto nella pagina delle opportunita'; sulla
@@ -774,7 +754,6 @@ function viewSimple() {
         valgono, quindi <b>non le do un prezzo obiettivo</b>. Non sono proposte
         d’acquisto e non le segnalo con una notifica.</p>
     </div>`);
-    push(bandaNumeri());
     push(chipsTipi(osservati));
     opp.forEach((o, k) => push(opportunityCard(o, k)));
   } else {
@@ -784,7 +763,6 @@ function viewSimple() {
       <h1>${tutte.length === 0 ? 'Nessuna opportunità, in questo momento.'
         : tutte.length === 1 ? 'Una opportunità.' : tutte.length + ' opportunità.'}</h1>
     </div>`);
-    push(bandaNumeri());
     push(chipsTipi(tutte));
     opp.forEach((o, k) => push(opportunityCard(o, k)));
 
