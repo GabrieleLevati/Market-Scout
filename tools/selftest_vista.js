@@ -398,6 +398,42 @@ function main() {
   check('con il loro motivo', html.indexOf('dovrebbe superare 85') > -1);
   check('dice che il controllo si ripete', html.indexOf('ogni due ore') > -1);
 
+  /* Gli osservati HANNO superato la soglia: quello che non hanno e un prezzo
+     obiettivo. Quindi in una giornata senza opportunita ma con osservati, la
+     frase "nessuno ha superato 70" sarebbe falsa e contraddetta da una card
+     con 75 punti poco sopra. L ho visto in una schermata, non nel codice. */
+  win = avvia('', null, (d) => {
+    d.opportunita = {
+      soglia: 70, lista: [], scartati: [],
+      osservati: [{ ticker: 'EXS1.DE', name: 'iShares Core DAX', score: 75,
+                    classification: 'Da monitorare', asset_class: 'ETF',
+                    sector: 'Indice', market: 'Europa', currency: 'EUR',
+                    price: 214.1, risk_label: 'Moderato', risk_score: 40,
+                    senza_valore: true, target: null, upside: null,
+                    scores: { fundamental: null, technical: 70, valuation: null,
+                              sentiment: null, risk: 40 },
+                    motivo: 'Di questo strumento non ho i conti per stimare un valore.' }],
+    };
+  });
+  html = vista(win);
+  check('la sezione separata compare', html.indexOf('tengo d’occhio') > -1);
+  check('e spiega perche e separata',
+        html.indexOf('non hanno bilanci') > -1);
+  /* Spazi normalizzati prima di confrontare: nel sorgente la frase va a capo
+     e l HTML collassa gli spazi in resa ma non nella stringa. Cercare il testo
+     cosi come lo legge l utente evita controlli che falliscono per una
+     riformattazione invece che per un difetto. */
+  const piatto = html.replace(/\s+/g, ' ');
+  check('la card dell osservato non promette un prezzo obiettivo',
+        piatto.indexOf('non stimo quanto vale') > -1);
+  check('e non mostra la riga del target vuota',
+        html.indexOf('Target price') === -1 || html.indexOf('>-<') === -1);
+  check('NON dice che nessuno ha superato la soglia',
+        html.indexOf('nessuno dei') === -1 || html.indexOf('di cui riesco a stimare') > -1,
+        'sarebbe contraddetto dalla card con 75 punti');
+  check('dice invece che manca il prezzo, non il punteggio',
+        html.indexOf('senza bilanci non posso dirle') > -1);
+
   console.log('\n7. Uguali per tutti: nessun parametro cambia l elenco');
   const conUtente = vista(avvia('?user=u3'));
   const senza = vista(avvia(''));

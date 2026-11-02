@@ -82,13 +82,51 @@ def main() -> int:
     check("dice che la soglia va superata, non raggiunta",
           "superare" in frase, frase[:72])
 
+    print("\n1b. Sopra soglia ma senza valore: lista a parte, non opportunita'")
+    # Il caso reale: un ETF a 75 punti era il secondo punteggio della giornata
+    # e non arrivava in pagina, sepolto fra gli esclusi. Non e' un'opportunita'
+    # (senza bilanci non si stima quanto vale, quindi non c'e' prezzo
+    # obiettivo) ma nascondere un 75 e' un'altra cosa.
+    assets = {"AAA": asset("AAA", "Alfa"),
+              "ETF": asset("ETF", "Un paniere", classe="ETF"),
+              "BND": asset("BND", "Obbligazioni", classe="Obbligazioni")}
+    an = {"AAA": analisi(90), "ETF": analisi(88, valore=None),
+          "BND": analisi(60, valore=None)}
+    r = globali(assets, an, {}, 85)
+    check("l'opportunita' vera resta nella sua lista",
+          [o["ticker"] for o in r["lista"]] == ["AAA"],
+          str([o["ticker"] for o in r["lista"]]))
+    oss = [o["ticker"] for o in r["osservati"]]
+    check("quello sopra soglia senza valore va fra gli osservati", oss == ["ETF"], str(oss))
+    check("e NON fra le opportunita'", "ETF" not in [o["ticker"] for o in r["lista"]])
+    check("quello sotto soglia resta fra gli scartati",
+          "BND" in [o["ticker"] for o in r["scartati"]],
+          str([o["ticker"] for o in r["scartati"]]))
+    e = r["osservati"][0]
+    check("l'osservato porta il punteggio", e["score"] == 88, str(e.get("score")))
+    check("e dice perche' non ha un valore", "non ho i conti" in (e.get("motivo") or ""),
+          (e.get("motivo") or "")[:60])
+    check("e' marcato come senza valore", e.get("senza_valore") is True)
+    for campo in ("target", "stop_loss", "entry_low", "entry_high", "upside",
+                  "risk_reward", "fair_value", "visione"):
+        check(f"non si inventa {campo}", campo in e and e[campo] is None,
+              repr(e.get(campo)))
+    for campo in ("price", "sector", "asset_class", "market", "currency",
+                  "risk_label", "scores", "classification"):
+        check(f"ma {campo} c'e', perche' si sa", e.get(campo) is not None)
+
     print("\n2. Senza stima di valore si monitora ma non si propone")
     assets = {"ETF": asset("ETF", "Un paniere", classe="ETF")}
     r = globali(assets, {"ETF": analisi(95, valore=None)}, {}, 85)
     check("non entra pur avendo 95 punti", not r["lista"])
+    # Sopra soglia finisce fra gli osservati, non fra gli scartati: la lista
+    # dipende dal punteggio, il motivo lo porta in entrambi i casi. Quello che
+    # NON deve succedere, in nessuna delle due, e' restare muto.
+    altrove = (r["osservati"] or []) + (r["scartati"] or [])
+    check("sta da qualche parte, non sparisce", bool(altrove), str(r))
     check("il motivo e' dichiarato, non muto",
-          bool(r["scartati"]) and "conti" in r["scartati"][0]["motivo"],
-          r["scartati"][0]["motivo"][:70] if r["scartati"] else "nessun motivo")
+          "conti" in (altrove[0].get("motivo") or ""),
+          (altrove[0].get("motivo") or "nessun motivo")[:70])
 
     print("\n3. L'ordine: prima il punteggio piu' alto")
     assets = {t: asset(t, t) for t in ("AAA", "BBB", "CCC")}

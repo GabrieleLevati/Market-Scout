@@ -132,15 +132,52 @@ def visione(a: dict, an: dict, plain: dict | None) -> dict:
     }
 
 
+def _voce_osservata(ticker: str, a: dict, an: dict, triggers_by_ticker: dict,
+                    plain: dict | None) -> dict:
+    """I campi di uno strumento osservato, cioe' senza stima di valore.
+
+    Volutamente NON ha target, stop, fascia di ingresso, rischio/rendimento ne'
+    "visione": tutte cose che si calcolano a partire dal valore stimato. Le
+    chiavi ci sono comunque, a None, perche' la pagina usa lo stesso disegno di
+    card e le righe vuote le salta da se'. Un None dichiarato e' meglio di una
+    chiave che manca: la seconda si scopre con un errore, il primo no.
+    """
+    t = a["tech"]
+    return {
+        "classification": an["classification"],
+        "final_rating": an["final_rating"],
+        "risk_label": an["risk_label"],
+        "risk_score": an["scores"]["risk"],
+        "sector": a["sector"],
+        "asset_class": a["asset_class"],
+        "market": a["market"],
+        "size": a.get("size"),
+        "currency": a["currency"],
+        "price": t["price"],
+        "scores": dict(an["scores"]),
+        "reasons": _motivi(triggers_by_ticker.get(ticker, [])),
+        "analysis_sources": dict(an.get("ai_sources") or {}),
+        "che_cos_e": ((plain or {}).get(ticker) or {}).get("what_is_it"),
+        "senza_valore": True,
+        "target": None, "stop_loss": None, "entry_low": None, "entry_high": None,
+        "upside": None, "downside": None, "risk_reward": None,
+        "fair_value": None, "valuation_method": None, "valuation_source": None,
+        "valuation_confidence": None, "visione": None,
+    }
+
+
 def globali(assets: dict, analyses: dict, triggers_by_ticker: dict,
             threshold: int, plain: dict | None = None) -> dict:
-    """Restituisce {"lista": [...], "scartati": [...], "soglia": n}.
+    """Restituisce {"lista", "osservati", "scartati", "soglia"}.
 
-    `lista` e' ordinata per punteggio decrescente. `scartati` serve a poter
-    dire perche' qualcosa non c'e': un elenco vuoto senza spiegazione sembra
-    un guasto.
+    `lista` sono le opportunita' vere, ordinate per punteggio decrescente.
+    `osservati` sono gli strumenti sopra soglia di cui NON si puo' stimare un
+    valore (ETF, obbligazionari, materie prime): si mostrano a parte, senza
+    prezzo obiettivo, e non generano notifiche. `scartati` serve a poter dire
+    perche' qualcosa non c'e': un elenco vuoto senza spiegazione sembra un
+    guasto.
     """
-    lista, scartati = [], []
+    lista, osservati, scartati = [], [], []
     for ticker, a in assets.items():
         an = analyses.get(ticker)
         if not an:
@@ -151,11 +188,27 @@ def globali(assets: dict, analyses: dict, triggers_by_ticker: dict,
                         or val.get("applicable") is False
                         or not val.get("fair_value"))
         if senza_valore:
-            scartati.append({
+            # ETF, obbligazionari, materie prime: non hanno bilanci, quindi non
+            # si puo' stimare quanto valgono e non si puo' dire "costa meno di
+            # quanto vale". Non sono opportunita' e non lo diventano.
+            #
+            # Ma buttarli fra gli scartati nascondeva un fatto: possono avere
+            # punteggi alti. Un ETF a 75 punti era il secondo punteggio della
+            # giornata e non arrivava in pagina, sepolto in un elenco di
+            # esclusi. Quindi chi supera la soglia finisce in una lista a
+            # parte - osservati - dichiarata per quello che e': punteggio si',
+            # prezzo obiettivo no. Chi non la supera resta fra gli scartati,
+            # perche' avrebbe due motivi per non esserci e uno basta.
+            voce = {
                 "ticker": ticker, "name": a["name"], "score": punteggio,
                 "motivo": "Di questo strumento non ho i conti per stimare un valore: "
                           "lo tengo d'occhio ma non lo propongo.",
-            })
+            }
+            if punteggio > threshold:
+                voce.update(_voce_osservata(ticker, a, an, triggers_by_ticker, plain))
+                osservati.append(voce)
+            else:
+                scartati.append(voce)
             continue
         if punteggio <= threshold:
             scartati.append({
@@ -204,5 +257,7 @@ def globali(assets: dict, analyses: dict, triggers_by_ticker: dict,
             "visione": visione(a, an, (plain or {}).get(ticker)),
         })
     lista.sort(key=lambda o: -o["score"])
+    osservati.sort(key=lambda o: -o["score"])
     scartati.sort(key=lambda o: -o["score"])
-    return {"lista": lista, "scartati": scartati[:8], "soglia": threshold}
+    return {"lista": lista, "osservati": osservati, "scartati": scartati[:8],
+            "soglia": threshold}

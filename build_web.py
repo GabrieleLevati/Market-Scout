@@ -197,7 +197,9 @@ def build_payload(state: dict, public: bool = False) -> dict:
         },
         # elenco globale delle opportunita': la pagina lo mostra e le
         # notifiche lo usano, cosi' non possono divergere
-        "opportunita": state.get("opportunita", {"lista": [], "scartati": [], "soglia": 0}),
+        "opportunita": state.get("opportunita",
+                                 {"lista": [], "osservati": [], "scartati": [],
+                                  "soglia": 0}),
         "llm": state["llm"],
         "data": {**state["data"], "mode": state["source"]},
         "stats": {
