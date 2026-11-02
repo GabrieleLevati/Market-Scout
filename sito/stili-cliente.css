@@ -627,28 +627,6 @@ body[data-mode="simple"] .light.verde {
   background: var(--tinta, var(--axis)); }
 .chip.on .pt { background: #fff; }
 
-/* ======================================================================
-   LA BANDA DEI NUMERI, in cima alla pagina
-   ======================================================================
-   Tre numeri invece di una frase: quanti ne ho trovati, quanti restano da
-   approfondire, qual e' il voto piu' alto di oggi. I numeri sono in colore
-   di testo e non nelle tinte delle serie - il colore qui non significa
-   niente, e usarlo lo renderebbe rumore. */
-.banda { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-  margin: 14px 0 2px; }
-.bt { padding: 12px 13px; border-radius: var(--r-sm); background: var(--surface-1);
-  border: 1px solid var(--border); box-shadow: var(--lift); }
-.bt .n { font-size: 25px; font-weight: 820; letter-spacing: -.03em; color: var(--text-1);
-  line-height: 1.05; font-variant-numeric: tabular-nums; }
-.bt .k { display: block; margin-top: 3px; font-size: 11px; font-weight: 650;
-  text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.bt.vuota .n { color: var(--muted); }
-@media (max-width: 380px) {
-  .bt { padding: 10px; }
-  .bt .n { font-size: 21px; }
-  .bt .k { font-size: 10px; letter-spacing: .04em; }
-}
-
 /* La card risponde al tocco. Su un telefono e' il solo modo di sapere che
    il dito e' stato registrato prima che la pagina cambi. */
 .flip .faccia .cbar button:active { transform: scale(.97); }
