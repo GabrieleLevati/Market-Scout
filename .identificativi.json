@@ -1,6 +1,6 @@
 {
   "versione": 1,
-  "aggiornato": "2026-11-02T21:47:47+00:00",
+  "aggiornato": "2026-11-02T23:28:15+00:00",
   "strumenti": {
     "AMD": {
       "trovato": true,
@@ -1343,6 +1343,50 @@
       },
       "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
       "scritto_il": "2026-11-02"
+    },
+    "ADS.DE": {
+      "trovato": true,
+      "figi": "BBG000FR1RP5",
+      "figi_composito": "BBG000FR1Q22",
+      "figi_classe": "BBG001S8J8Q3",
+      "nome": "ADIDAS AG",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "GY",
+      "ticker_borsa": "ADS",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "ADS",
+        "exchCode": "GY"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-03"
+    },
+    "ALV.DE": {
+      "trovato": true,
+      "figi": "BBG000BBFBD7",
+      "figi_composito": "BBG000BBF8T7",
+      "figi_classe": "BBG001S5XGR4",
+      "nome": "ALLIANZ SE-REG",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "GY",
+      "ticker_borsa": "ALV",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "ALV",
+        "exchCode": "GY"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-03"
     }
   },
   "isin_verificati": {}
