@@ -54,14 +54,30 @@ def finto(modo: str = "ok", contenuto: str | None = None):
             return False
 
     def fake(req, timeout=None, context=None):
+        url = req.full_url
         corpo = json.loads(req.data.decode("utf-8")) if req.data else {}
         RICHIESTE.append({"url": req.full_url, "body": corpo,
-                          "auth": req.headers.get("Authorization")})
+                          "auth": req.headers.get("Authorization"),
+                          "ua": req.headers.get("User-agent")})
         if modo == "429":
             raise urllib.error.HTTPError(
                 req.full_url, 429, "Too Many Requests", {},
                 io.BytesIO(b'{"error":{"message":"Quota exceeded for metric: '
                            b'generate_content_free_tier_requests, limit: 20"}}'))
+        if modo == "404modello":
+            # prima chiamata: il modello non esiste. Poi l'elenco. Poi va.
+            if url.endswith("/models"):
+                corpo_el = {"data": [{"id": "whisper-large-v3"},
+                                     {"id": "llama-nuovo-70b-versatile"},
+                                     {"id": "llama-guard-4-12b"}]}
+                return Ctx(io.BytesIO(json.dumps(corpo_el).encode("utf-8")))
+            if corpo.get("model") == "modello-ritirato":
+                raise urllib.error.HTTPError(
+                    req.full_url, 404, "Not Found", {},
+                    io.BytesIO(b'{"error":{"message":"The model '
+                               b'`modello-ritirato` does not exist or you do '
+                               b'not have access to it.","code":'
+                               b'"model_not_found"}}'))
         if modo == "500":
             raise urllib.error.HTTPError(req.full_url, 500, "Server Error", {},
                                          io.BytesIO(b'{"error":"boom"}'))
@@ -118,6 +134,14 @@ def main() -> int:
               (r["body"].get("response_format") or {}).get("type") == "json_object")
         check("c'e' il messaggio di sistema",
               r["body"]["messages"][0]["role"] == "system")
+        # Senza User-Agent Cloudflare, che sta davanti a Groq, risponde 403
+        # (errore 1010) e il vero errore - per esempio una chiave non valida -
+        # resta invisibile. E' costato un ciclo intero con quattordici
+        # ricadute e zero risposte, senza capire perche'.
+        check("la richiesta si presenta con uno User-Agent",
+              bool(r.get("ua")), str(r.get("ua")))
+        check("e NON e' il default di urllib, che viene bloccato",
+              "urllib" not in str(r.get("ua")).lower(), str(r.get("ua")))
         check("lo schema e' descritto nel testo, perche' non si puo' imporre",
               '"score"' in r["body"]["messages"][0]["content"],
               r["body"]["messages"][0]["content"][-90:])
@@ -202,6 +226,50 @@ def main() -> int:
         check("senza secondo configurato restituisce None",
               coppia.generate_json("p", SCHEMA, cache_key="c5") is None)
         check("e non conta ricadute inesistenti", coppia.ricadute == 0)
+
+        print("\n4b. Un modello ritirato non deve spegnere l'AI")
+        # E' successo davvero, due volte: Google ha ritirato gemini-2.5-flash e
+        # Groq llama-3.3-70b-versatile. Un nome scritto a mano nel programma e'
+        # una data di scadenza che nessuno conosce. Qui il programma chiede
+        # l'elenco, sceglie, e riprova.
+        from engine.llm2 import scegli_modello
+        check("scarta i modelli che non servono (voce, immagini, filtri)",
+              scegli_modello(["whisper-large-v3", "llama-guard-4-12b",
+                              "llama-nuovo-70b-versatile"])
+              == "llama-nuovo-70b-versatile")
+        check("se non c'e' nessun modello di testo lo dice",
+              scegli_modello(["whisper-large-v3", "playai-tts"]) is None)
+        check("con un elenco vuoto non esplode", scegli_modello([]) is None)
+
+        finto("404modello")
+        c = llm2_mod.Compatibile(enabled=True, api_key="finta", use_cache=False,
+                                 model="modello-ritirato", retry_wait_s=0)
+        out = c.generate_json("prova", SCHEMA, cache_key="k404")
+        check("la risposta arriva comunque", out == {"score": 77, "nota": "va bene"},
+              str(out))
+        check("ha cambiato modello da se'", c.model == "llama-nuovo-70b-versatile",
+              c.model)
+        check("e lo dice, col comando per fissarlo",
+              "LLM2_MODEL" in (c.last_error or ""), (c.last_error or "")[-70:])
+        check("non entra in un giro infinito di tentativi",
+              c.stats["retries"] == 1, str(c.stats["retries"]))
+
+        print("\n5b. Se falliscono entrambi si deve capire di chi e' la colpa")
+        finto("429")
+        primo = Finto(risposta=None, quota_error="limite 5 richieste")
+        primo.last_error = "HTTP 503: high demand"
+        secondo = llm2_mod.Compatibile(enabled=True, api_key="finta", use_cache=False,
+                                       retry_wait_s=0)
+        coppia = llm2_mod.Coppia(primo, secondo)
+        coppia.generate_json("p", SCHEMA, cache_key="c6")
+        errore = coppia.last_error or ""
+        check("l'errore del PRIMO modello e' visibile", "[1]" in errore, errore[:50])
+        check("l'errore del SECONDO modello e' visibile", "[2]" in errore, errore[-50:])
+        st = coppia.stats
+        check("le statistiche dicono quale dei due ha risposto",
+              "primo" in st and "secondo" in st, str(sorted(st))[:68])
+        check("e con che modello", st["secondo"]["modello"] == secondo.model,
+              st["secondo"]["modello"])
 
         print("\n6. La coppia si presenta come un modello solo")
         primo = Finto(risposta={"x": 1})

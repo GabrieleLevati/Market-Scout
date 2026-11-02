@@ -1,0 +1,27 @@
+# Fine riga: deciso qui una volta, invece di dipendere da come e' configurato
+# il computer di chi scarica il progetto.
+#
+# PERCHE' SERVE. Il progetto gira in due posti con abitudini opposte: Windows
+# (CRLF) e la macchina Linux di GitHub (LF). Senza questo file ogni
+# "git add" avvisa che convertira' qualcosa, e - cosa piu' seria - gli stessi
+# file hanno byte diversi nei due posti. Quei byte contano: build_web.py
+# calcola il nome della cache del service worker come impronta dei file
+# pubblicati, quindi pubblicare dal PC e poi dal cloud cambierebbe l'impronta
+# senza che sia cambiato nulla, e tutti i telefoni riscaricherebbero l'app per
+# niente.
+
+# Tutto il codice sta su LF, dentro il repository e nella copia di lavoro.
+* text=auto eol=lf
+
+# ECCEZIONE, e non e' una preferenza: i file batch di Windows vogliono CRLF.
+# cmd.exe legge il file mentre lo esegue e con le sole LF sbaglia a trovare le
+# etichette di "goto", quindi uno script con :errore e :fine puo' saltare il
+# blocco sbagliato o uscire senza dire niente.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binari: non toccarli mai.
+*.png binary
+*.ico binary
+*.pdf binary
+*.zip binary

@@ -46,6 +46,30 @@ def righe(d: dict) -> list[str]:
     ric = (llm.get("stats") or {}).get("ricadute")
     if ric:
         out.append(f"- il secondo modello è subentrato {ric} volte")
+    # Quante risposte del modello sono arrivate davvero. Senza questa riga un
+    # ciclo con zero risposte sembra identico a uno riuscito: e' esattamente
+    # quello che e' successo, e per scoprirlo e' servito leggere il file
+    # pubblicato a mano.
+    st = llm.get("stats") or {}
+    riuscite = st.get("live", 0) + st.get("cached", 0)
+    if llm.get("enabled"):
+        out.append(f"- risposte del modello: **{riuscite}** "
+                   f"({st.get('live', 0)} nuove, {st.get('cached', 0)} dalla cache, "
+                   f"{st.get('errors', 0)} errori)")
+        if not riuscite:
+            out.append("- **ATTENZIONE: nessuna risposta dal modello.** "
+                       "Le analisi sono tutte del calcolo deterministico.")
+        for chi, etichetta in (("primo", "primo modello"), ("secondo", "secondo modello")):
+            d2 = st.get(chi)
+            if isinstance(d2, dict):
+                out.append(f"  - {etichetta} ({d2.get('modello', '?')}): "
+                           f"{d2.get('live', 0)} risposte, {d2.get('errors', 0)} errori")
+        errore = llm.get("last_error")
+        if errore and not riuscite:
+            prime = " / ".join(r.strip() for r in str(errore).splitlines() if r.strip())
+            out.append(f"  - perché: `{prime[:300]}`")
+        if llm.get("quota_error"):
+            out.append(f"  - quota: {llm['quota_error']}")
     out.append(f"- opportunità sopra {o.get('soglia', '?')}: **{len(lista)}**")
     if nov.get("primo_giro"):
         out.append("- primo giro: niente da confrontare")

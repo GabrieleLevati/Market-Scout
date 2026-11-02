@@ -40,11 +40,43 @@ from .llm import TIMEOUT_S, quota_detail
 __all__ = ["Compatibile", "Coppia", "PRONTI", "MAX_ATTEMPTS"]
 
 # Valori pronti per i fornitori verificati raggiungibili da questa rete.
+# Chi siamo, per chi ci chiede di presentarci. Serve davvero: vedi il commento
+# sulla richiesta, piu' sotto.
+USER_AGENT = "AI-Market-Scout-demo/0.1 (uso personale)"
+
 PRONTI = {
     "groq": ("https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
     "cerebras": ("https://api.cerebras.ai/v1", "llama3.1-70b"),
     "openrouter": ("https://openrouter.ai/api/v1", "google/gemma-4-31b-it:free"),
 }
+
+
+# Nomi che NON sono modelli di testo: trascrizione, sintesi vocale, immagini,
+# filtri di sicurezza. Se il modello va scelto da un elenco, questi vanno via.
+NON_DI_TESTO = ("whisper", "tts", "guard", "vision", "embed", "rerank",
+                "transcribe", "image", "audio", "moderation")
+
+# In che ordine preferirli, a parita' di tutto: prima quelli grossi e
+# generalisti, perche' il lavoro qui e' giudizio e non chiacchiera.
+PREFERENZE = ("versatile", "70b", "-large", "32b", "instruct", "8b")
+
+
+def scegli_modello(nomi: list[str]) -> str | None:
+    """Da un elenco di modelli, quello piu' adatto a questo lavoro.
+
+    Serve perche' i nomi dei modelli invecchiano: Groq ha ritirato
+    llama-3.3-70b-versatile e Google gemini-2.5-flash nello spazio di pochi
+    mesi. Scrivere un nome a mano vuol dire mettere nel programma una data di
+    scadenza che nessuno conosce. Meglio chiedere l'elenco e scegliere.
+    """
+    testo = [n for n in nomi if not any(x in n.lower() for x in NON_DI_TESTO)]
+    if not testo:
+        return None
+    for chiave in PREFERENZE:
+        for n in testo:
+            if chiave in n.lower():
+                return n
+    return sorted(testo)[0]
 
 
 def _schema_a_parole(schema: dict) -> str:
@@ -96,6 +128,9 @@ class Compatibile:
         self.log: list[dict] = []
         self.last_error: str | None = None
         self.quota_error: str | None = None
+        # Riempito quando il modello configurato non esiste piu' e il
+        # programma ne trova uno valido da se'.
+        self.suggested_model: str | None = None
         if self.use_cache:
             CACHE_DIR.mkdir(exist_ok=True)
 
@@ -110,6 +145,23 @@ class Compatibile:
 
     def _spent(self) -> int:
         return self.stats["live"] + self.stats["errors"]
+
+    def modelli(self) -> list[str]:
+        """L'elenco dei modelli che questa chiave puo' usare, o vuoto."""
+        req = urllib.request.Request(
+            f"{self.base}/models",
+            headers={"Authorization": f"Bearer {self.api_key}",
+                     "User-Agent": USER_AGENT})
+        try:
+            ctx = ssl.create_default_context()
+            with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
+                dati = json.loads(r.read().decode("utf-8"))
+            voci = dati.get("data") or dati.get("models") or []
+            return sorted(str(m.get("id") or m.get("name") or "") for m in voci
+                          if (m.get("id") or m.get("name")))
+        except Exception as e:
+            self.last_error = f"elenco modelli non disponibile: {type(e).__name__}"
+            return []
 
     def _cache_path(self, key: str):
         import hashlib
@@ -180,9 +232,15 @@ class Compatibile:
                 attesa = self.pace_s - (time.monotonic() - self._last_call)
                 if attesa > 0:
                     time.sleep(attesa)
+            # Lo User-Agent non e' una formalita': Groq sta dietro Cloudflare,
+            # che rifiuta con 403 (errore 1010) chi si presenta come
+            # "Python-urllib", cioe' il default di urllib. Lo stesso problema
+            # che la SEC pone in modo esplicito, qui arriva senza spiegazioni:
+            # una richiesta identica passa o non passa solo per questa riga.
             req = urllib.request.Request(
                 url, data=json.dumps(body).encode("utf-8"),
                 headers={"Content-Type": "application/json",
+                         "User-Agent": USER_AGENT,
                          "Authorization": f"Bearer {self.api_key}"},
                 method="POST")
             try:
@@ -197,6 +255,25 @@ class Compatibile:
                 if e.code == 429:
                     self.quota_error = quota_detail(detail) or self.quota_error
                 self._last_call = time.monotonic()
+                # Modello ritirato: non e' un guasto passeggero, e riprovare
+                # lo stesso nome non servirebbe. Si chiede l'elenco, si
+                # sceglie, e si riprova UNA volta col nome nuovo. Senza
+                # questo, il giorno in cui il fornitore ritira un modello il
+                # ciclo smette di usare l'AI e nessuno capisce perche'.
+                if (e.code == 404 and "model" in detail.lower()
+                        and not self.suggested_model):
+                    disponibili = self.modelli()
+                    scelto = scegli_modello(disponibili)
+                    if scelto and scelto != self.model:
+                        self.suggested_model = scelto
+                        self.last_error += (
+                            f"\nIl modello {self.model} non esiste piu'. "
+                            f"Uso {scelto}. Per fissarlo: "
+                            f'setx LLM2_MODEL "{scelto}"')
+                        self.model = scelto
+                        body["model"] = scelto
+                        self.stats["retries"] += 1
+                        continue
                 riprovabile = e.code == 429 or e.code >= 500
                 # attesa 0 vuol dire "riprova subito", non "non riprovare":
                 # per non riprovare si passa None. La differenza conta, perche'
@@ -315,7 +392,20 @@ class Coppia:
 
     @property
     def last_error(self):
-        return self.primario.last_error or self.secondario.last_error
+        """Gli errori di TUTTI E DUE.
+
+        Prima restituiva solo quello del primo: quando fallivano entrambi, il
+        motivo del secondo era invisibile e la diagnosi impossibile. E'
+        successo davvero - un ciclo con quattordici ricadute e zero risposte,
+        e dal file pubblicato non si capiva che il secondo modello rifiutava
+        la chiave.
+        """
+        pezzi = []
+        if self.primario.last_error:
+            pezzi.append(f"[1] {self.primario.last_error}")
+        if self.secondario.last_error:
+            pezzi.append(f"[2] {self.secondario.last_error}")
+        return "\n".join(pezzi) or None
 
     @property
     def quota_error(self):
@@ -339,6 +429,12 @@ class Coppia:
         a, b = self.primario.stats, self.secondario.stats
         somma = {k: (a.get(k, 0) + b.get(k, 0)) for k in set(a) | set(b)}
         somma["ricadute"] = self.ricadute
+        # Anche separate: una somma a zero non dice QUALE dei due ha fallito,
+        # e senza quello non si sa dove intervenire.
+        somma["primo"] = {"live": a.get("live", 0), "errors": a.get("errors", 0),
+                          "modello": self.primario.model}
+        somma["secondo"] = {"live": b.get("live", 0), "errors": b.get("errors", 0),
+                            "modello": self.secondario.model}
         return somma
 
     def _spent(self) -> int:
