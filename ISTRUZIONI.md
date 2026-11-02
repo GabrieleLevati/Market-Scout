@@ -298,7 +298,7 @@ python tools\selftest_pubblico.py
 ```
 
 L'ultima riga **deve** dire «Nessuna fuga di dati personali». Se dice altro, non pubblicare.
-`da-caricare\` sono dieci file, circa 1 MB; `web\` resta la tua, con il tuo profilo dentro.
+`da-caricare\` e' circa 1 MB; `web\` resta la tua, con il tuo profilo dentro.
 
 **La cartella `sito\` non si genera dal PC.** Quella la rigenera e la pubblica il ciclo nel
 cloud ogni due ore ([AUTOMATICO.md](AUTOMATICO.md)). Se la riscrivi anche da qui, lo stesso

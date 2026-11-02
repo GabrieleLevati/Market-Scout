@@ -103,7 +103,7 @@ python build_web.py --real --live --llm-limit 2 --llm-pace 5 --pubblico --cartel
 python tools\selftest_pubblico.py
 ```
 
-Poi copi `da-caricare\` (dieci file, circa 1 MB) su Google Drive, WhatsApp o una chiavetta.
+Poi copi `da-caricare\` (circa 1 MB) su Google Drive, WhatsApp o una chiavetta.
 L'amico la apre con doppio clic su `index.html`.
 
 **Non mandare `web\`**: quello è il tuo, e se hai un `profilo.json` contiene il tuo profilo,
@@ -142,7 +142,7 @@ di esempio senza compilare nulla — utile per fargli capire in dieci secondi di
    > finisce con i marcatori di conflitto di git scritti dentro i dati: è successo, e la pagina
    > è diventata bianca. Quando generi dal PC, scrivi altrove.
 
-   La seconda riga crea `da-caricare\` con i nove file della pagina e un `data.js` da cui sono
+   La seconda riga crea `da-caricare\` con i file della pagina e un `data.js` da cui sono
    **esclusi il tuo profilo, le tue posizioni, i prezzi di carico, i report che hai chiesto tu e
    le righe del log che ti nominano**: restano solo le analisi, che sono uguali per tutti. La
    cartella `web\` resta quella privata, così pubblicare non ti cancella il profilo dalla

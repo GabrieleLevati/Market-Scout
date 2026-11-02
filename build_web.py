@@ -275,7 +275,11 @@ _re_sw = _re.compile(r"const VERSIONE = '[^']*';")
 STATIC_FILES = ("index.html", "styles.css", "stili-cliente.css",
                 "charts.js", "onboarding.js", "app.js",
                 # installazione sul telefono e funzionamento senza rete
-                "manifest.webmanifest", "sw.js", "icona-192.png", "icona-512.png")
+                "manifest.webmanifest", "sw.js", "icona-192.png", "icona-512.png",
+                # scadenze HTTP: senza questo file le decide l'hosting, e per
+                # data.js sceglierebbe una scadenza da codice invece che da
+                # dati. Cloudflare Pages lo legge e non lo serve.
+                "_headers")
 
 
 def _timbra_sw(dst: str) -> str:

@@ -94,10 +94,20 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // i dati del ciclo: prima la rete, poi la cache
+  // I dati del ciclo: prima la rete, poi la cache.
+  //
+  // `cache: 'no-cache'` non e' un dettaglio. "Prima la rete" non basta: un
+  // fetch normale puo' essere soddisfatto dalla cache HTTP del browser senza
+  // che la rete venga mai toccata, se la risposta precedente dichiarava una
+  // scadenza lunga. Il service worker crederebbe di aver chiesto il dato
+  // nuovo e servirebbe quello di stamattina. Con 'no-cache' la richiesta va
+  // sempre al server a chiedere "e' cambiato?": se non e' cambiato il server
+  // risponde 304 e non si scarica niente, quindi non costa banda. Sopra i
+  // prezzi di un'applicazione finanziaria, una scadenza decisa da altri non
+  // va bene.
   if (url.pathname.endsWith('/data.js')) {
     e.respondWith(
-      fetch(req)
+      fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }))
         .then((res) => {
           if (conservabile(res)) {
             const copia = res.clone();

@@ -49,7 +49,12 @@ if not errorlevel 1 (
 rem --- 2. di quando e' la cartella ------------------------------------------
 echo  --- La cartella da caricare -------------------------------------
 powershell -NoProfile -Command "$f = Get-Item 'da-caricare\data.js' -ErrorAction SilentlyContinue; if ($f) { '  dati del ciclo:  ' + $f.LastWriteTime.ToString('dd/MM/yyyy HH:mm') } else { '  MANCA da-caricare\data.js: lancia prima giornaliero.cmd 0' }" 2>nul
-powershell -NoProfile -Command "$n = (Get-ChildItem 'da-caricare' -File -ErrorAction SilentlyContinue).Count; '  file da caricare: ' + $n + ' (devono essere 11)'" 2>nul
+rem  Il numero NON e' scritto a mano: lo era, diceva 11, ed e' rimasto 11
+rem  anche quando i file sono diventati dodici. Un conteggio atteso scritto in
+rem  un posto diverso da dove si decide e' una bugia con la data di scadenza:
+rem  qui si dice quanti sono e si controlla che ci siano i due indispensabili.
+powershell -NoProfile -Command "$n = (Get-ChildItem 'da-caricare' -File -ErrorAction SilentlyContinue).Count; '  file da caricare: ' + $n" 2>nul
+powershell -NoProfile -Command "foreach ($f in 'index.html','data.js') { if (Test-Path ('da-caricare\' + $f)) { '  c''e'' ' + $f } else { '  MANCA ' + $f + ': la cartella non e'' completa' } }" 2>nul
 powershell -NoProfile -Command "$d = Get-Content 'da-caricare\data.js' -Raw -ErrorAction SilentlyContinue; if ($d -match '\""data_mode\"":\s*\""([a-z]+)\""') { '  tipo di dati:     ' + $Matches[1] }; if ($d -match '\""mode\"":\s*\""(live[^\""]*)\""') { '  analisi AI:       ' + $Matches[1] }" 2>nul
 echo.
 
@@ -62,7 +67,7 @@ echo.
 rem --- 4. apri quello che serve --------------------------------------------
 echo  --- Che cosa fare ora -------------------------------------------
 echo.
-echo   1. Nella finestra che si apre: CTRL+A per selezionare gli 11 file
+echo   1. Nella finestra che si apre: CTRL+A per selezionare tutti i file
 echo   2. Su Cloudflare: il tuo progetto - Create new deployment
 echo   3. Trascina i file. Controlla che ci sia index.html e nessun .cmd
 echo   4. Deploy

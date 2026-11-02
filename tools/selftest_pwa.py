@@ -136,6 +136,38 @@ def main() -> int:
           "location.protocol.indexOf('http')" in html,
           "aperta da disco la pagina deve funzionare comunque")
 
+    print("\n6b. I dati nuovi devono arrivare sul telefono")
+    # "Prima la rete" non basta. Un fetch normale puo' essere soddisfatto
+    # dalla cache HTTP del browser senza toccare la rete, se la risposta
+    # precedente dichiarava una scadenza lunga: il service worker crede di
+    # aver chiesto il dato nuovo e serve quello di stamattina. Niente da
+    # vedere nei log, nessun errore, solo numeri vecchi con l'aria di essere
+    # nuovi. Due cose lo impediscono, e si controllano entrambe.
+    sw = senza_commenti(leggi("sw.js"))
+    ramo_dati = sw[sw.find("/data.js"):]
+    check("data.js viene chiesto prima alla rete",
+          "/data.js" in sw and "fetch(" in ramo_dati)
+    check("e la richiesta salta la cache HTTP del browser",
+          "'no-cache'" in ramo_dati or '"no-cache"' in ramo_dati,
+          "serve cache: 'no-cache' nel ramo di data.js")
+    check("se la rete manca si ricade sulla copia in cache",
+          "caches.match(req)" in ramo_dati)
+
+    check("c'e' il file delle scadenze HTTP per l'hosting",
+          os.path.exists(os.path.join(WEB, "_headers")),
+          "senza, la scadenza di data.js la decide Cloudflare")
+    if os.path.exists(os.path.join(WEB, "_headers")):
+        with open(os.path.join(WEB, "_headers"), encoding="utf-8") as f:
+            righe = [r.strip() for r in f if r.strip() and not r.strip().startswith("#")]
+        testo = "\n".join(righe)
+        check("dichiara data.js senza conservazione cieca",
+              "/data.js" in testo and "no-cache" in testo, testo[:70])
+        check("e vale anche per il service worker, che decide quale app gira",
+              "/sw.js" in testo)
+    check("_headers e' fra i file pubblicati",
+          '"_headers"' in build,
+          "se non viene copiato nella cartella, l'hosting non lo vede")
+
     print("\n7. La cartella pubblicata ha UN SOLO autore")
     # Il difetto che questo gruppo impedisce: "sito" era rigenerata sia dai
     # cicli sul PC sia da quello nel cloud, e tutti e due la salvavano nel
