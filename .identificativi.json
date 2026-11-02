@@ -1,6 +1,6 @@
 {
   "versione": 1,
-  "aggiornato": "2026-11-01T01:43:16+00:00",
+  "aggiornato": "2026-11-02T21:47:47+00:00",
   "strumenti": {
     "AMD": {
       "trovato": true,
@@ -1057,6 +1057,292 @@
       },
       "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
       "scritto_il": "2026-11-01"
+    },
+    "SHELL.AS": {
+      "trovato": true,
+      "figi": "BBG014GDKBS7",
+      "figi_composito": "BBG014GDKBR8",
+      "figi_classe": "BBG0149N4YG4",
+      "nome": "SHELL PLC",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "NA",
+      "ticker_borsa": "SHELL",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "SHELL",
+        "exchCode": "NA"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "AMGN": {
+      "trovato": true,
+      "figi": "BBG000BBS2Y0",
+      "figi_composito": "BBG000BBS2Y0",
+      "figi_classe": "BBG001S5NNL6",
+      "nome": "AMGEN INC",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "US",
+      "ticker_borsa": "AMGN",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "AMGN",
+        "exchCode": "US"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "VRTX": {
+      "trovato": true,
+      "figi": "BBG000C1S2X2",
+      "figi_composito": "BBG000C1S2X2",
+      "figi_classe": "BBG001S68LJ8",
+      "nome": "VERTEX PHARMACEUTICALS INC",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "US",
+      "ticker_borsa": "VRTX",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "VRTX",
+        "exchCode": "US"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "ENI.MI": {
+      "trovato": true,
+      "figi": "BBG000FVRV79",
+      "figi_composito": "BBG000FVRTJ1",
+      "figi_classe": "BBG001S7QGH9",
+      "nome": "ENI SPA",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "IM",
+      "ticker_borsa": "ENI",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "ENI",
+        "exchCode": "IM"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "AVGO": {
+      "trovato": true,
+      "figi": "BBG00KHY5S69",
+      "figi_composito": "BBG00KHY5S69",
+      "figi_classe": "BBG00KHY5SY8",
+      "nome": "BROADCOM INC",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "US",
+      "ticker_borsa": "AVGO",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "AVGO",
+        "exchCode": "US"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "LRCX": {
+      "trovato": true,
+      "figi": "BBG000BNFLM9",
+      "figi_composito": "BBG000BNFLM9",
+      "figi_classe": "BBG001S5SW40",
+      "nome": "LAM RESEARCH CORP",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "US",
+      "ticker_borsa": "LRCX",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "LRCX",
+        "exchCode": "US"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "EQNR.OL": {
+      "trovato": true,
+      "figi": "BBG000NSV6T3",
+      "figi_composito": "BBG000NSV604",
+      "figi_classe": "BBG001SDM4Q7",
+      "nome": "EQUINOR ASA",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "NO",
+      "ticker_borsa": "EQNR",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "EQNR",
+        "exchCode": "NO"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "TTE.PA": {
+      "trovato": true,
+      "figi": "BBG000C1M4K8",
+      "figi_composito": "BBG000C1M473",
+      "figi_classe": "BBG001S67Y74",
+      "nome": "TOTALENERGIES SE",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "FP",
+      "ticker_borsa": "TTE",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "TTE",
+        "exchCode": "FP"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "000660.KS": {
+      "trovato": true,
+      "figi": "BBG000GQVT51",
+      "figi_composito": "BBG000GQVT51",
+      "figi_classe": "BBG001S90F76",
+      "nome": "SK HYNIX INC",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "KS",
+      "ticker_borsa": "000660",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "000660",
+        "exchCode": "KS"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "NFLX": {
+      "trovato": true,
+      "figi": "BBG000CL9VN6",
+      "figi_composito": "BBG000CL9VN6",
+      "figi_classe": "BBG001SF6L46",
+      "nome": "NETFLIX INC",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "US",
+      "ticker_borsa": "NFLX",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "NFLX",
+        "exchCode": "US"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "UBER": {
+      "trovato": true,
+      "figi": "BBG002B04MT8",
+      "figi_composito": "BBG002B04MT8",
+      "figi_classe": "BBG002B04MW4",
+      "nome": "UBER TECHNOLOGIES INC",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "US",
+      "ticker_borsa": "UBER",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "UBER",
+        "exchCode": "US"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "PHIA.AS": {
+      "trovato": true,
+      "figi": "BBG000JX4KH9",
+      "figi_composito": "BBG000JX4JW5",
+      "figi_classe": "BBG001S696G3",
+      "nome": "KONINKLIJKE PHILIPS NV",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "NA",
+      "ticker_borsa": "PHIA",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "PHIA",
+        "exchCode": "NA"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
+    },
+    "SAND.ST": {
+      "trovato": true,
+      "figi": "BBG000BR0GN6",
+      "figi_composito": "BBG000BR0GF5",
+      "figi_classe": "BBG001S77WN8",
+      "nome": "SANDVIK AB",
+      "tipo": "Common Stock",
+      "tipo_dettaglio": "Common Stock",
+      "settore_mercato": "Equity",
+      "borsa": "SS",
+      "ticker_borsa": "SAND",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "SAND",
+        "exchCode": "SS"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-02"
     }
   },
   "isin_verificati": {}

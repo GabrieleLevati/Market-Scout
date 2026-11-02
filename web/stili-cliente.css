@@ -556,6 +556,66 @@ body[data-mode="simple"] .light.verde {
 .fr-euro.sv { background: color-mix(in srgb, var(--text-2) 7%, transparent);
   border-color: color-mix(in srgb, var(--text-2) 22%, transparent); }
 
+/* LA NAVIGAZIONE fra le tre pagine. Testo e non icone: "Da approfondire" si
+   capisce, un simbolo per la stessa cosa no. Il numero accanto serve a sapere
+   se vale la pena andarci prima di andarci. */
+.navpag { display: flex; gap: 6px; padding: 10px 20px 2px; max-width: 620px;
+  margin: 0 auto; overflow-x: auto; scrollbar-width: none; }
+.navpag::-webkit-scrollbar { display: none; }
+.nv { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 14px; font-weight: 700; letter-spacing: -0.1px;
+  color: var(--muted); background: transparent; border: 0; cursor: pointer;
+  padding: 8px 13px; border-radius: 999px; transition: background .16s, color .16s; }
+.nv:hover { color: var(--text); background: color-mix(in srgb, var(--text-2) 8%, transparent); }
+.nv b { font-size: 11.5px; font-weight: 800; padding: 1px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--text-2) 14%, transparent); color: var(--text-2); }
+/* La pagina attiva: non solo un colore. Chi non distingue bene i colori deve
+   vederlo comunque, quindi cambia anche il fondo e il peso del contorno. */
+.nv.on { color: var(--text); background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border), var(--sh-1); }
+.nv.on b { background: color-mix(in srgb, var(--s1) 20%, transparent); color: var(--s1); }
+
+/* IL MENU DEI TIPI. Scorre in orizzontale invece di andare a capo: una fila
+   sola dice "questi sono i filtri", due file sembrano contenuto. */
+.chipsrow { display: flex; gap: 7px; padding: 12px 20px 4px; overflow-x: auto;
+  scrollbar-width: none; }
+.chipsrow::-webkit-scrollbar { display: none; }
+.chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; font-size: 13px; font-weight: 650; color: var(--text-2);
+  background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+  padding: 7px 12px; cursor: pointer; transition: background .16s, color .16s,
+  border-color .16s; }
+.chip:hover { border-color: color-mix(in srgb, var(--s1) 45%, var(--border)); }
+.chip b { font-size: 11px; font-weight: 800; color: var(--muted); }
+/* Selezionato: fondo pieno E contorno, mai il solo colore. */
+.chip.on { color: #fff; background: var(--s1); border-color: var(--s1); }
+.chip.on b { color: color-mix(in srgb, #fff 75%, transparent); }
+
+/* IL RIMANDO all'altra pagina. E' un bottone e si vede che lo e': una riga di
+   testo con una freccia si legge come una didascalia e nessuno la tocca. */
+.rimando { display: flex; align-items: center; gap: 12px; width: calc(100% - 40px);
+  margin: 18px 20px 4px; padding: 14px 16px; text-align: left; font: inherit;
+  font-size: 14px; color: var(--text-2); background: var(--card); cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--sh-1);
+  transition: border-color .16s, transform .12s; }
+.rimando:hover { border-color: color-mix(in srgb, var(--s1) 50%, var(--border)); }
+.rimando:active { transform: scale(0.995); }
+.rimando span { flex: 1; line-height: 1.45; }
+.rimando b { color: var(--text); font-weight: 800; }
+.rimando i { flex: 0 0 auto; font-style: normal; font-size: 13.5px; font-weight: 750;
+  color: var(--s1); white-space: nowrap; }
+
+/* La riga di spiegazione sotto il titolo della pagina "Da approfondire". */
+.hero .sub { margin: 10px 0 0; font-size: 14px; line-height: 1.55; color: var(--muted);
+  max-width: 52ch; }
+.hero .sub b { color: var(--text-2); font-weight: 750; }
+
+@media (max-width: 620px) {
+  .navpag { padding-left: 16px; padding-right: 16px; }
+  .chipsrow { padding-left: 16px; padding-right: 16px; }
+  .rimando { width: calc(100% - 32px); margin-left: 16px; margin-right: 16px; }
+}
+
 /* L'intestazione che separa le due liste. Deve spiegare, non solo dividere:
    una seconda fila di card senza una riga di testo sopra sembrerebbe la
    continuazione della prima. */

@@ -345,15 +345,28 @@ function main() {
   check('salva la data', !!salvato && !!salvato.dal, salvato && String(salvato.dal));
 
   console.log('\n4c. I preferiti stanno in una pagina loro');
+  /* LA VERIFICA CHE MANCAVA. I controlli dicevano che la pagina dei seguiti
+     esisteva e si apriva, e passavano: intanto la stessa vista veniva ANCHE
+     accodata in fondo alle opportunita, che si ritrovava due intestazioni e
+     la lista dei seguiti sotto le card. Verificare che una cosa ci sia non
+     verifica che non sia anche dove non deve stare. */
+  html = vista(win);
   check('nella pagina delle opportunita non c e la coda dei seguiti',
-        vista(win).indexOf('che segui') === -1);
+        html.indexOf('che segui') === -1);
+  check('e non ci finisce la vista dei seguiti per intero',
+        html.indexOf('Segue ') === -1 && html.indexOf('Non sta seguendo') === -1);
+  check('una sola intestazione nella pagina',
+        (html.match(/class="hero"/g) || []).length === 1,
+        String((html.match(/class="hero"/g) || []).length));
   // Non basta che la pagina esista: deve esserci un modo di arrivarci
   // cliccando. Il test prima cambiava pagina da codice, e intanto nella
   // barra in alto il bottone non c'era: una funzione irraggiungibile.
-  const barra = vista(win).slice(0, vista(win).indexOf('class="feed"'));
-  check('nella barra in alto c e il bottone dei preferiti',
-        barra.indexOf('stella-nav') > -1 && barra.indexOf('data-act="pagina"') > -1);
-  check('la barra dice quanti ne segue', barra.indexOf('<b>1</b>') > -1);
+  const barra = html.slice(0, html.indexOf('class="feed"'));
+  check('c e una navigazione per arrivare ai preferiti',
+        barra.indexOf('class="navpag"') > -1 && barra.indexOf('data-p="seguiti"') > -1);
+  check('e anche alla pagina di quelli da approfondire',
+        barra.indexOf('data-p="osservati"') > -1);
+  check('la navigazione dice quanti ne segue', barra.indexOf('<b>1</b>') > -1);
   errore = null;
   try { win.AMS.state.pagina = 'seguiti'; win.AMS.render(); } catch (e) { errore = e; }
   check('la pagina dei preferiti si apre', !errore, errore && errore.message);
@@ -405,8 +418,8 @@ function main() {
   win = avvia('', null, (d) => {
     d.opportunita = {
       soglia: 70, lista: [], scartati: [],
-      osservati: [{ ticker: 'EXS1.DE', name: 'iShares Core DAX', score: 75,
-                    classification: 'Da monitorare', asset_class: 'ETF',
+      osservati: [{ ticker: 'EXS1.DE', name: 'iShares Core DAX', score: 94,
+                    classification: 'Opportunità eccezionale', asset_class: 'ETF',
                     sector: 'Indice', market: 'Europa', currency: 'EUR',
                     price: 214.1, risk_label: 'Moderato', risk_score: 40,
                     senza_valore: true, target: null, upside: null,
@@ -416,21 +429,46 @@ function main() {
     };
   });
   html = vista(win);
-  check('la sezione separata compare', html.indexOf('tengo d’occhio') > -1);
-  check('e spiega perche e separata',
-        html.indexOf('non hanno bilanci') > -1);
+  /* Gli osservati stanno su una pagina loro, non mescolati qui: nella pagina
+     delle opportunita ci deve essere il RIMANDO, altrimenti chi sta qui non
+     sa che esiste l altra. */
+  check('c e il rimando alla pagina di quelli da approfondire',
+        html.indexOf('data-p="osservati"') > -1);
+  check('e il rimando dice quanti sono e perche sono altrove',
+        html.replace(/\s+/g, ' ').indexOf('non posso stimarne il valore') > -1);
+  check('le card degli osservati NON stanno fra le opportunita',
+        html.indexOf('EXS1.DE') === -1);
+
+  win.AMS.state.pagina = 'osservati';
+  win.AMS.render();
+  html = vista(win);
   /* Spazi normalizzati prima di confrontare: nel sorgente la frase va a capo
      e l HTML collassa gli spazi in resa ma non nella stringa. Cercare il testo
      cosi come lo legge l utente evita controlli che falliscono per una
      riformattazione invece che per un difetto. */
   const piatto = html.replace(/\s+/g, ' ');
+  check('la pagina dedicata mostra lo strumento', html.indexOf('EXS1.DE') > -1);
+  /* L etichetta non deve chiamarli opportunita. Il motore classifica per
+     fascia di punteggio e per un 94 scrive "Opportunita eccezionale": giusto
+     fra le opportunita, contraddittorio su una pagina che dichiara "non sono
+     proposte d acquisto". Visto in una schermata, non nel codice. */
+  check('non li chiama opportunita, perche la pagina dice il contrario',
+        piatto.indexOf('Opportunità eccezionale') === -1
+        && piatto.indexOf('Opportunità forte') === -1, piatto.slice(0, 0));
+  check('ma dice che il punteggio e alto, perche lo e',
+        piatto.indexOf('Punteggio alto') > -1 || piatto.indexOf('Da monitorare') > -1);
+  check('e spiega perche non ha un prezzo obiettivo',
+        piatto.indexOf('non hanno bilanci') > -1);
   check('la card dell osservato non promette un prezzo obiettivo',
         piatto.indexOf('non stimo quanto vale') > -1);
   check('e non mostra la riga del target vuota',
         html.indexOf('Target price') === -1 || html.indexOf('>-<') === -1);
+  win.AMS.state.pagina = 'opportunita';
+  win.AMS.render();
+  html = vista(win);
   check('NON dice che nessuno ha superato la soglia',
         html.indexOf('nessuno dei') === -1 || html.indexOf('di cui riesco a stimare') > -1,
-        'sarebbe contraddetto dalla card con 75 punti');
+        'sarebbe contraddetto dalla card con 94 punti');
   check('dice invece che manca il prezzo, non il punteggio',
         html.indexOf('senza bilanci non posso dirle') > -1);
 
@@ -561,6 +599,86 @@ function main() {
   win.AMS.rientro();
   check('e mai mentre l app e in background',
         win.location._ricariche === 0, String(win.location._ricariche));
+
+  console.log('\n11. Il menu dei tipi: scegliere cosa vedere, non cosa esiste');
+  /* E un filtro di VISUALIZZAZIONE: la lista che il motore produce resta
+     identica per tutti e questo cambia solo cosa si disegna. La distinzione
+     non e formale - un elenco calcolato sul profilo di chi guarda sarebbe
+     una raccomandazione personalizzata, che e un altra cosa. */
+  const treTipi = (d) => {
+    fissaOpportunita(d);
+    const base = d.opportunita.lista[0];
+    const copia = (tk, nome, classe, voto) => Object.assign({}, base,
+      { ticker: tk, name: nome, asset_class: classe, score: voto });
+    d.opportunita.lista = [
+      copia('AAA', 'Una azione', 'Azioni', 90),
+      copia('BBB', 'Un paniere', 'ETF', 88),
+      copia('CCC', 'Un altra azione', 'Azioni', 80),
+    ];
+    d.opportunita.osservati = [];
+  };
+
+  win = avvia('', null, treTipi);
+  win.AMS.tipiScrivi([]);
+  win.AMS.render();
+  html = vista(win);
+  check('i pulsanti dei tipi compaiono', html.indexOf('class="chipsrow"') > -1);
+  check('c e il pulsante Azioni col suo numero',
+        html.indexOf('data-t="Azioni"') > -1 && html.indexOf('>Azioni<b>2</b>') > -1);
+  check('e quello ETF', html.indexOf('data-t="ETF"') > -1);
+  check('con niente scelto, "Tutti" risulta attivo',
+        html.indexOf('class="chip on" data-act="tipo" data-t=""') > -1);
+  check('si vedono tutte e tre le card',
+        (html.match(/id="opp-/g) || []).length === 3,
+        String((html.match(/id="opp-/g) || []).length));
+
+  win.AMS.tipiScrivi(['ETF']);
+  win.AMS.render();
+  html = vista(win);
+  check('scelto ETF, resta una card sola',
+        (html.match(/id="opp-/g) || []).length === 1,
+        String((html.match(/id="opp-/g) || []).length));
+  check('ed e quella giusta', html.indexOf('BBB') > -1 && html.indexOf('AAA') === -1);
+  check('il titolo continua a dire il totale vero, non il filtrato',
+        html.indexOf('3 opportunità') > -1);
+
+  /* IL CONTROLLO CHE CONTA. L indice di una card e usato in tre posti
+     lontani - il disegno, l anello col voto, la stellina - e la stellina
+     prende lo strumento per posizione. Con un filtro attivo, se quei tre
+     contassero sull elenco completo mentre a schermo c e un sottoinsieme,
+     la stella della prima card seguirebbe lo strumento sbagliato: il
+     danno sarebbe silenzioso e nei dati di chi guarda. */
+  const visibili = win.AMS.carteVisibili();
+  check('le card a schermo sono solo quelle filtrate',
+        visibili.length === 1 && visibili[0].ticker === 'BBB',
+        visibili.map(o => o.ticker).join(','));
+  check('mentre la ricerca per ticker trova anche i nascosti',
+        !!win.AMS.carteTutte().find(o => o.ticker === 'AAA'));
+  check('la stellina della prima card punta allo strumento mostrato',
+        html.indexOf('data-act="segui" data-i="0"') > -1
+        && win.AMS.carteVisibili()[0].ticker === 'BBB');
+
+  win.AMS.tipiScrivi(['Crypto']);
+  win.AMS.render();
+  html = vista(win);
+  check('un filtro che non lascia passare niente lo dichiara',
+        html.indexOf('Il filtro non lascia passare niente') > -1);
+  check('e non si spaccia per una giornata vuota',
+        html.indexOf('Oggi non c') === -1);
+  check('e dice come tornare indietro',
+        html.replace(/\s+/g, ' ').indexOf('Tocchi <b>Tutti</b>') > -1);
+
+  win.AMS.tipiScrivi([]);
+  win.AMS.render();
+  check('azzerando il filtro tornano tutte',
+        (vista(win).match(/id="opp-/g) || []).length === 3);
+
+  win = avvia('', null, (d) => {
+    treTipi(d);
+    d.opportunita.lista = [d.opportunita.lista[0]];
+  });
+  check('con un tipo solo il menu non compare, perche non servirebbe',
+        vista(win).indexOf('class="chipsrow"') === -1);
 
   console.log('\n' + (ok ? 'Tutti i controlli superati.' : 'ALCUNI CONTROLLI FALLITI.'));
   return ok ? 0 : 1;

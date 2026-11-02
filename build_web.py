@@ -228,6 +228,59 @@ def build_payload(state: dict, public: bool = False) -> dict:
     }
 
 
+# Campi di un asset che la pagina legge SOLO per le card che disegna: sono
+# anche i piu' pesanti (la serie storica da sola e' 3,5 KB per strumento).
+PESANTI = ("chart", "news", "fundamentals", "valuation", "tech", "plan",
+           "contributions", "triggers", "data_quality", "prescreen",
+           "mispricing", "ai_review", "ai_sources", "earnings", "insider",
+           "scores", "weights_redistributed", "in_batch", "description")
+
+# Sezioni del payload che il browser non apre mai. Verificato cercandole in
+# web/app.js: zero riferimenti a reports_cache, reports e knowledge.
+MAI_LETTE = ("reports_cache", "reports", "knowledge")
+
+
+def alleggerisci(payload: dict) -> dict:
+    """Toglie dal file quello che la pagina non legge.
+
+    PERCHE'. Con 48 strumenti il file era 1 MB e nessuno se ne accorgeva. Con
+    224 e' arrivato a 4 MB, e quel file lo scarica il telefono a ogni visita:
+    su una rete lenta sono secondi di attesa e dati consumati per niente,
+    perche' in pagina ci sono una trentina di card, non duecento.
+
+    Che cosa resta. TUTTI gli strumenti restano nell'elenco, con nome, prezzo,
+    punteggio e classificazione: servono a chi segue uno strumento che oggi non
+    e' fra le proposte, e togliere l'elenco sarebbe togliere contenuto invece
+    che peso. Spariscono solo i campi grossi degli strumenti che non si
+    disegnano - la serie storica, le notizie, il dettaglio degli agenti - e le
+    tre sezioni che il browser non apre.
+
+    `agents` resta come oggetto vuoto e non sparisce: la pagina scrive
+    `a.agents.fundamental || {}`, e su un campo assente quella riga
+    solleverebbe un errore invece di ricadere sul valore vuoto.
+    """
+    opp = payload.get("opportunita") or {}
+    mostrati = {o["ticker"] for o in (opp.get("lista") or [])}
+    mostrati |= {o["ticker"] for o in (opp.get("osservati") or [])}
+
+    leggeri = []
+    for a in payload.get("assets") or []:
+        if a.get("ticker") in mostrati:
+            leggeri.append(a)
+            continue
+        snello = {k: v for k, v in a.items() if k not in PESANTI}
+        snello["agents"] = {}
+        leggeri.append(snello)
+    payload["assets"] = leggeri
+
+    plain = payload.get("plain") or {}
+    payload["plain"] = {k: v for k, v in plain.items() if k in mostrati}
+
+    for k in MAI_LETTE:
+        payload.pop(k, None)
+    return payload
+
+
 def _opportunita_pubblicate(path: str) -> dict:
     """I ticker e i punteggi che stanno nel data.js che sta per essere
     sostituito.
@@ -251,7 +304,11 @@ def _opportunita_pubblicate(path: str) -> dict:
 def write_data(state: dict, path: str | None = None, public: bool = False) -> str:
     path = path or os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "data.js")
     prima = _opportunita_pubblicate(path)
-    payload = build_payload(state, public=public)
+    # L'alleggerimento sta QUI e non in build_payload perche' i controlli
+    # automatici confrontano il payload completo con lo stato del motore: la
+    # verifica della privacy deve vedere tutto quello che il motore produce,
+    # non la versione ridotta.
+    payload = alleggerisci(build_payload(state, public=public))
     adesso = {o["ticker"]: o["score"]
               for o in ((payload.get("opportunita") or {}).get("lista") or [])}
     payload["novita"] = {
