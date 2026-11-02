@@ -80,6 +80,9 @@ function creaFinestra(search) {
     },
     body: Object.assign(elemento('body'), { dataset: {} }),
     _nodi: new Map(),
+    // Si parte visibile, come un'app appena aperta. Il controllo sul rientro
+    // la mette in background e la riporta avanti.
+    visibilityState: 'visible',
     createElement: (t) => elemento(t),
     createElementNS: (ns, t) => Object.assign(elemento(t), { _ns: ns }),
     addEventListener() {},
@@ -91,7 +94,10 @@ function creaFinestra(search) {
   };
   const win = {
     document: doc,
-    location: { search: search || '', hash: '', protocol: 'file:', pathname: '/index.html' },
+    // `_ricariche` conta le ricariche chieste: e' l'unico modo di verificare
+    // che al rientro nell'app i dati nuovi vengano davvero richiesti.
+    location: { search: search || '', hash: '', protocol: 'file:', pathname: '/index.html',
+                _ricariche: 0, reload() { this._ricariche += 1; } },
     history: { replaceState() {} },
     localStorage: {
       getItem: (k) => (archivio.has(k) ? archivio.get(k) : null),
@@ -467,6 +473,58 @@ function main() {
     d.data = { prezzi_al: isoDiOggi(15, 47), seduta_in_corso: true };
   }));
   check('e l etichetta finisce davvero in pagina', html.indexOf('prezzi delle 15:47') > -1);
+
+  console.log('\n10. Riaprendo l app si rivedono dati nuovi, non quelli di prima');
+  /* PERCHE'. Un applicazione installata non riparte da zero: il telefono la
+     tiene in memoria. Senza niente che reagisca al rientro, chi riapre l app
+     alle 19 rivede la pagina caricata alle 15, con i prezzi delle 15 - e il
+     ciclo nel frattempo ha pubblicato due volte. A freddo funzionava, ma
+     riaprire dal background e il caso normale, non l eccezione. */
+  /* La pagina si invecchia spostando INDIETRO il momento del caricamento, non
+     avanti l orologio: Date e lo stesso oggetto del processo che esegue i
+     controlli, e spostarlo avrebbe sporcato tutti i controlli successivi. */
+  const ferma = (win, minuti) => { win.AMS.tempo.caricata -= minuti * 60 * 1000; };
+
+  win = avvia('', null, fissaOpportunita);
+  check('appena caricata, nessuna ricarica', win.location._ricariche === 0,
+        String(win.location._ricariche));
+  win.AMS.rientro();
+  check('e nemmeno rientrando subito (sarebbe un giro infinito)',
+        win.location._ricariche === 0, String(win.location._ricariche));
+
+  win = avvia('', null, fissaOpportunita);
+  ferma(win, 30);
+  win.AMS.rientro();
+  check('dopo mezz ora di pausa, rientrando ricarica',
+        win.location._ricariche === 1, String(win.location._ricariche));
+
+  win = avvia('', null, fissaOpportunita);
+  ferma(win, 30);
+  win.AMS.state.aperte = [0];
+  win.AMS.rientro();
+  check('ma non con una card aperta: si sta leggendo',
+        win.location._ricariche === 0, String(win.location._ricariche));
+
+  win = avvia('', null, fissaOpportunita);
+  ferma(win, 30);
+  win.AMS.state.conf = true;
+  win.AMS.rientro();
+  check('ne col foglio "come lavoro" alzato',
+        win.location._ricariche === 0, String(win.location._ricariche));
+
+  win = avvia('', null, fissaOpportunita);
+  ferma(win, 30);
+  win.AMS.state.pagina = 'seguiti';
+  win.AMS.rientro();
+  check('ne sulla pagina dei prodotti seguiti',
+        win.location._ricariche === 0, String(win.location._ricariche));
+
+  win = avvia('', null, fissaOpportunita);
+  ferma(win, 30);
+  win.document.visibilityState = 'hidden';
+  win.AMS.rientro();
+  check('e mai mentre l app e in background',
+        win.location._ricariche === 0, String(win.location._ricariche));
 
   console.log('\n' + (ok ? 'Tutti i controlli superati.' : 'ALCUNI CONTROLLI FALLITI.'));
   return ok ? 0 : 1;
