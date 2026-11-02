@@ -278,8 +278,11 @@ function seguiAlterna(o) {
    stimato, rotto il livello di uscita, oppure ancora in mezzo. */
 function statoSeguito(ticker, salvato) {
   const a = asset(ticker);
-  const opp = ((D.opportunita && D.opportunita.lista) || [])
-    .find(o => o.ticker === ticker);
+  // carte() e non solo la lista: si puo' seguire anche un osservato, e in quel
+  // caso il suo prezzo e i suoi dati stanno li'. Cercando nella sola lista
+  // delle opportunita' un osservato seguito sarebbe risultato "non ho piu' i
+  // dati di questo strumento", che e' falso.
+  const opp = carte().find(o => o.ticker === ticker);
   const prezzoOggi = a ? a.price : (opp ? opp.price : null);
   if (prezzoOggi === null || prezzoOggi === undefined) {
     return { nome: salvato.nome || ticker, ticker: ticker, noto: false,
@@ -332,6 +335,25 @@ function statoSeguito(ticker, salvato) {
 function fascia(score) {
   return score >= 90 ? 'eccezionale' : score >= 80 ? 'forte'
        : score >= 70 ? 'da monitorare' : 'nessuna azione';
+}
+
+/* LE CARD A SCHERMO, IN ORDINE: le opportunita' vere e poi gli osservati.
+   Una funzione sola perche' l'indice di una card e' usato in tre posti
+   lontani fra loro - il disegno, l'anello col voto e la stellina - e se
+   quei tre non contassero nella stessa maniera la stella di una card
+   seguirebbe un altro strumento. Meglio un elenco unico che tre liste da
+   tenere allineate a mano. */
+function carte() {
+  const o = D.opportunita || {};
+  return (o.lista || []).concat(o.osservati || []);
+}
+
+/* Un numero da mostrare, o null se non c'e'. Serve perche' rigaDato() salta
+   le righe vuote ma non quelle che valgono "-": per gli osservati, che non
+   hanno prezzo obiettivo, una riga "Target price -" occuperebbe spazio per
+   dire niente. */
+function numOpz(v, d) {
+  return (v === null || v === undefined) ? null : F.num(v, d === undefined ? 2 : d);
 }
 
 function rigaDato(etichetta, valore, nota) {
@@ -422,11 +444,15 @@ function opportunityCard(o, idx) {
         </div>
         ${o.che_cos_e ? `<p class="fr-cos">${esc(o.che_cos_e)}</p>` : ''}
         <div class="fr-spark"><div class="spark" id="sch-${idx}"></div></div>
-        <div class="fr-euro${v.al_tetto ? ' incerto' : ''}">Costa
+        ${o.senza_valore ? `<div class="fr-euro sv">Costa
+          <b>${F.num(o.price)} ${esc(o.currency)}</b>. Di questo strumento non
+          stimo quanto vale: non ha bilanci da cui calcolarlo, quindi non ho un
+          prezzo obiettivo da darle.</div>`
+        : `<div class="fr-euro${v.al_tetto ? ' incerto' : ''}">Costa
           <b>${F.num(o.price)} ${esc(o.currency)}</b>,
           secondo i miei conti vale <b>${F.num(o.target)}</b>:
           ${F.signed(o.upside)} rispetto a oggi.${v.al_tetto
-            ? ' <span class="nota">stima al tetto del modello, poco precisa</span>' : ''}</div>
+            ? ' <span class="nota">stima al tetto del modello, poco precisa</span>' : ''}</div>`}
         ${(v.azione || v.attesa) ? `<div class="visione">
           <div class="vt">La mia visione</div>
           <p class="va">${esc(v.azione || '')}</p>
@@ -459,10 +485,18 @@ function opportunityCard(o, idx) {
           ${rigaDato('Mercato', esc(o.market), o.size ? String(o.size) : null)}
           ${rigaDato('Valuta', esc(o.currency))}
           ${rigaDato('Prezzo oggi', F.num(o.price))}
-          ${rigaDato('Target price', F.num(o.target), F.signed(o.upside))}
-          ${rigaDato('Uscita (stop)', F.num(o.stop_loss), F.signed(o.downside))}
-          ${rigaDato('Fascia di ingresso', F.num(o.entry_low) + ' – ' + F.num(o.entry_high))}
-          ${rigaDato('Rischio / rendimento', F.num(o.risk_reward) + 'x')}
+          ${rigaDato('Target price', numOpz(o.target),
+                     o.upside === null || o.upside === undefined
+                       ? null : F.signed(o.upside))}
+          ${rigaDato('Uscita (stop)', numOpz(o.stop_loss),
+                     o.downside === null || o.downside === undefined
+                       ? null : F.signed(o.downside))}
+          ${rigaDato('Fascia di ingresso', o.entry_low === null || o.entry_low === undefined
+                     ? null : F.num(o.entry_low) + ' – ' + F.num(o.entry_high))}
+          ${rigaDato('Rischio / rendimento', o.risk_reward === null
+                     || o.risk_reward === undefined ? null : F.num(o.risk_reward) + 'x')}
+          ${o.senza_valore ? rigaDato('Prezzo obiettivo', 'non calcolabile',
+                                      'senza bilanci non stimo un valore') : ''}
           ${rigaDato('Rischio', esc(o.risk_label), o.risk_score + '/100')}
           ${rigaDato('Orizzonte della mia stima', esc(v.orizzonte || ''))}
           ${rigaDato('Come ho calcolato il valore', esc(o.valuation_method || ''),
@@ -583,6 +617,27 @@ function viewSimple() {
 
   opp.forEach((o, k) => push(opportunityCard(o, k)));
 
+  /* GLI OSSERVATI, in una sezione loro e non mescolati sopra.
+     Sono strumenti che hanno superato la soglia ma di cui non si puo' stimare
+     un valore: ETF, obbligazionari, materie prime non hanno bilanci. Senza
+     valore stimato non c'e' prezzo obiettivo, quindi non sono opportunita' e
+     metterli nella stessa lista direbbe una cosa falsa. Ma tenerli invisibili
+     ne nascondeva di buoni: un ETF a 75 punti era il secondo punteggio della
+     giornata e non arrivava in pagina. Quindi: visibili, separati, e con
+     scritto perche' sono separati. */
+  const osservati = (D.opportunita && D.opportunita.osservati) || [];
+  if (osservati.length) {
+    push(`<div class="sezione" style="--i:<#i>">
+      <h2>${osservati.length === 1 ? 'Ne tengo d’occhio un altro'
+            : 'Ne tengo d’occhio altri ' + osservati.length}</h2>
+      <p>Hanno superato ${soglia} punti, ma sono panieri, obbligazioni o materie
+        prime: non hanno bilanci, quindi non posso calcolare quanto valgono e non
+        le do un prezzo obiettivo. Non sono proposte d’acquisto e non le
+        segnalo con una notifica.</p>
+    </div>`);
+    osservati.forEach((o, k) => push(opportunityCard(o, opp.length + k)));
+  }
+
   const nov = D.novita || {};
   const nuove = (nov.nuove || []).length;
   const uscite = (nov.uscite || []).length;
@@ -597,10 +652,21 @@ function viewSimple() {
   }
 
   if (!opp.length) {
+    /* Il testo cambia se ci sono osservati, e non e' pignoleria: dire
+       "nessuno ha superato 70" mentre poco sopra c'e' una card con 75 punti
+       e' una contraddizione che si legge in pagina. Gli osservati HANNO
+       superato la soglia; quello che non hanno e' un prezzo obiettivo. */
     push(`<div class="vuoto" style="--i:<#i>">
-      <h2>Oggi non c'è niente sopra la soglia</h2>
-      <p>Non è un guasto: nessuno dei ${D.stats.assets} strumenti controllati ha superato
-        ${soglia} punti su 100. Il controllo si ripete ogni due ore, e appena qualcosa
+      <h2>Oggi non c'è niente da proporle</h2>
+      <p>${osservati.length
+        ? `Non è un guasto: dei ${D.stats.assets} strumenti controllati, nessuno di
+           quelli di cui riesco a stimare un valore ha superato ${soglia} punti su 100.
+           ${osservati.length === 1 ? 'Quello qui sopra lo ha superato'
+             : 'Quelli qui sopra la hanno superata'}, ma senza bilanci non posso dirle
+           a che prezzo vale la pena comprarlo.`
+        : `Non è un guasto: nessuno dei ${D.stats.assets} strumenti controllati ha superato
+           ${soglia} punti su 100.`}
+        Il controllo si ripete ogni due ore, e appena qualcosa
         supera la soglia arriva la notifica.</p>
       ${scartati.length ? `<div class="vicini">
         <div class="conto">i più vicini</div>
@@ -931,7 +997,9 @@ function toast(text) {
 
 function afterSimple() {
   const c = Charts.colors();
-  const opp = (D.opportunita && D.opportunita.lista) || [];
+  // carte(), non solo la lista: gli osservati hanno anello e grafico come le
+  // altre, e devono contare nello stesso ordine con cui sono stati disegnati.
+  const opp = carte();
 
   opp.forEach((o, i) => {
     const a = asset(o.ticker);
@@ -999,8 +1067,7 @@ function afterSimple() {
         // dei seguiti, perche' un nuovo disegno farebbe ripartire le
         // animazioni di tutte le card e si perderebbe il punto di scorrimento.
         const i = Number(el.dataset.i);
-        const opp = (D.opportunita && D.opportunita.lista) || [];
-        const o = opp[i];
+        const o = carte()[i];
         if (!o) return;
         const ora = seguiAlterna(o);
         el.textContent = ora ? '★' : '☆';
