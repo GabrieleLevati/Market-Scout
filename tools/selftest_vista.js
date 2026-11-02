@@ -390,12 +390,12 @@ function main() {
   win = avvia('', null, (d) => {
     d.opportunita = { soglia: 85, lista: [], scartati: [
       { ticker: 'XXX', name: 'Qualcosa', score: 82,
-        motivo: 'Ha preso 82 punti su 100, sotto la soglia di 85.' }] };
+        motivo: 'Ha preso 82 punti su 100: per segnalarlo dovrebbe superare 85.' }] };
   });
   html = vista(win);
   check('dice che non e un guasto', html.indexOf('Non è un guasto') > -1);
   check('mostra i piu vicini', html.indexOf('i più vicini') > -1);
-  check('con il loro motivo', html.indexOf('sotto la soglia') > -1);
+  check('con il loro motivo', html.indexOf('dovrebbe superare 85') > -1);
   check('dice che il controllo si ripete', html.indexOf('ogni due ore') > -1);
 
   console.log('\n7. Uguali per tutti: nessun parametro cambia l elenco');

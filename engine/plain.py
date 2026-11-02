@@ -439,8 +439,10 @@ def rejected_plain(decision: dict, assets: dict, limit: int = 3) -> list[dict]:
         name = a.get("name", r["ticker"])
         v, kind = r.get("values", {}), r.get("kind")
         if kind == "score":
-            text = (f"Ha preso {r['score']} punti su 100: interessante, ma sotto la soglia "
-                    f"di {v.get('threshold', 85)} che ho con lei per scriverle.")
+            # Stessa ragione di opportunita.py: la soglia va superata, non
+            # raggiunta, e "85 punti, sotto la soglia di 85" si contraddice.
+            text = (f"Ha preso {r['score']} punti su 100: interessante, ma per "
+                    f"scriverle dovrebbe superare {v.get('threshold', 85)}.")
         elif kind == "market":
             text = (f"Si compra su un mercato che non ha messo nel suo profilo: "
                     f"{MARKET_WORDS.get(v.get('market'), v.get('market'))}.")

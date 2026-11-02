@@ -72,6 +72,15 @@ def main() -> int:
     scartati = {o["ticker"]: o["motivo"] for o in r["scartati"]}
     check("gli scartati portano il motivo", "BBB" in scartati and "85" in scartati["BBB"],
           scartati.get("BBB", "")[:60])
+    # IL TESTO, non solo la regola. La regola era giusta da sempre, la frase
+    # no: per uno strumento esattamente sulla soglia diceva "85 punti su 100,
+    # sotto la soglia di 85", e quella frase si legge in pagina. E' venuta
+    # fuori il giorno in cui due strumenti si sono fermati esattamente su 70.
+    frase = scartati.get("BBB", "")
+    check("e il motivo non si contraddice su chi sta esattamente sulla soglia",
+          "sotto la soglia" not in frase, frase[:72])
+    check("dice che la soglia va superata, non raggiunta",
+          "superare" in frase, frase[:72])
 
     print("\n2. Senza stima di valore si monitora ma non si propone")
     assets = {"ETF": asset("ETF", "Un paniere", classe="ETF")}

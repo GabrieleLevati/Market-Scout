@@ -160,8 +160,13 @@ def globali(assets: dict, analyses: dict, triggers_by_ticker: dict,
         if punteggio <= threshold:
             scartati.append({
                 "ticker": ticker, "name": a["name"], "score": punteggio,
-                "motivo": f"Ha preso {punteggio} punti su 100, sotto la soglia di "
-                          f"{threshold} sotto la quale non segnalo niente.",
+                # La soglia e' STRETTA (il confronto qui sopra e' <=), quindi un
+                # punteggio pari alla soglia non passa. Il testo precedente
+                # diceva "70 punti, sotto la soglia di 70": una contraddizione
+                # che si leggeva in pagina. Qui si dice la regola invece del
+                # confronto, cosi' vale sia per 68 che per 70.
+                "motivo": f"Ha preso {punteggio} punti su 100: per segnalarlo "
+                          f"dovrebbe superare {threshold}.",
             })
             continue
         plan = an["plan"]
