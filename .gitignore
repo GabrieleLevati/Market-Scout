@@ -1,0 +1,19 @@
+# Dati personali: non devono mai finire nel repository.
+profilo.json
+giornaliero.log
+
+# Cache locali: si rigenerano, e .llm_cache contiene le risposte del modello
+# (non sono segrete, ma pesano e cambiano a ogni ciclo).
+.data_cache/
+.llm_cache/
+
+# Stato delle notifiche e schermate di sviluppo
+.opportunita_viste.json
+.shots/
+
+# La dashboard privata: contiene il profilo se c'e'. Si pubblica "sito/".
+web/data.js
+
+# Python
+__pycache__/
+*.pyc

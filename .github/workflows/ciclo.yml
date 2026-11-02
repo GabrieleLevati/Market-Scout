@@ -1,0 +1,145 @@
+# Il ciclo ogni due ore, eseguito da GitHub invece che dal tuo computer.
+#
+# PERCHE'. Finora il ciclo girava sul PC: se il PC era spento, sospeso, o se
+# qualcuno chiudeva la finestra, non girava. E la pubblicazione andava fatta a
+# mano trascinando una cartella. Qui gira su una macchina di GitHub, a
+# qualunque ora, col tuo computer spento, e pubblica da sola.
+#
+# COSTO. Zero: i repository pubblici hanno minuti illimitati, i privati 2.000
+# al mese. Il ciclo senza AI dura un paio di minuti, quello con AI dipende da
+# quanto e' lento il modello. Per questo l'AI gira due volte al giorno e non
+# dodici, e per questo conviene mettere Groq come secondo modello: risponde in
+# un secondo contro i 30-180 di Gemini.
+#
+# COSA SERVE, una volta sola, in Settings - Secrets and variables - Actions:
+#   GEMINI_API_KEY   la chiave di Gemini
+#   LLM2_KEY         la chiave di Groq (facoltativa ma consigliata)
+#   LLM2_FORNITORE   "groq"  (facoltativa, e' il default)
+#   NTFY_TOPIC       se vuoi la notifica push (facoltativa)
+
+name: ciclo
+
+on:
+  schedule:
+    # Ogni due ore ai minuti :05. Gli orari di cron sono in UTC: in Italia
+    # d'inverno sono un'ora dopo, d'estate due. Le due ore con AI sono scelte
+    # in modo che cadano a mercati chiusi o quasi: 09:05 UTC (10:05 italiane)
+    # e 21:05 UTC (22:05 italiane, dopo la chiusura di New York).
+    - cron: '5 1,3,5,7,11,13,15,17,19,23 * * *'   # solo calcolo
+    - cron: '5 9,21 * * 1-5'                       # con AI, solo nei giorni di borsa
+  workflow_dispatch:                               # per lanciarlo a mano dal sito
+    inputs:
+      con_ai:
+        description: 'Usare il modello AI in questo ciclo'
+        type: boolean
+        default: false
+
+concurrency:
+  # Due cicli insieme si pesterebbero i piedi sul file dei dati.
+  group: ciclo
+  cancel-in-progress: false
+
+permissions:
+  contents: write      # serve per salvare i dati aggiornati nel repository
+
+jobs:
+  ciclo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Prendi il codice
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          # Niente "cache: pip": il progetto non ha dipendenze, e' tutta
+          # libreria standard. E' il motivo per cui questo ciclo parte in
+          # pochi secondi.
+
+      - name: Riusa i dati scaricati e le risposte del modello
+        # La cache evita di riscaricare Yahoo a ogni ciclo e - soprattutto -
+        # conserva le risposte di Gemini: senza, ogni ciclo ripagherebbe le
+        # stesse domande e la quota giornaliera finirebbe in due giri.
+        uses: actions/cache@v4
+        with:
+          path: |
+            .data_cache
+            .llm_cache
+          key: cache-${{ github.run_id }}
+          restore-keys: |
+            cache-
+
+      - name: Decidi se usare l'AI
+        id: modo
+        run: |
+          # L'AI gira solo nei due cicli dedicati (o se la chiedi a mano).
+          # Negli altri dieci il tetto e' zero: il ciclo legge la cache e non
+          # fa nemmeno una chiamata.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CON_AI="${{ inputs.con_ai }}"
+          elif [ "${{ github.event.schedule }}" = "5 9,21 * * 1-5" ]; then
+            CON_AI="true"
+          else
+            CON_AI="false"
+          fi
+          if [ "$CON_AI" = "true" ]; then
+            echo "flags=--real --live --llm-limit 2 --llm-pace 3 --llm-budget 8 --threshold 70" >> "$GITHUB_OUTPUT"
+            echo "etichetta=con AI" >> "$GITHUB_OUTPUT"
+          else
+            echo "flags=--real --live --llm-limit 2 --llm-budget 0 --threshold 70" >> "$GITHUB_OUTPUT"
+            echo "etichetta=solo calcolo (AI dalla cache)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Controlli automatici
+        # Prima di pubblicare qualcosa si verifica che il programma stia in
+        # piedi. Se un test non passa, il ciclo si ferma qui e il sito resta
+        # all'ultima versione buona.
+        run: |
+          python tools/selftest_opportunita.py
+          python tools/selftest_pwa.py
+          python tools/selftest_llm.py
+          python tools/selftest_llm2.py
+          python tools/selftest_notifiche.py
+
+      - name: Il ciclo
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-3.8-flash' }}
+          LLM2_KEY: ${{ secrets.LLM2_KEY }}
+          LLM2_FORNITORE: ${{ secrets.LLM2_FORNITORE || 'groq' }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          echo "::group::Scansione (${{ steps.modo.outputs.etichetta }})"
+          python cli.py scan ${{ steps.modo.outputs.flags }} --notifica
+          echo "::endgroup::"
+          python build_web.py ${{ steps.modo.outputs.flags }} --pubblico --cartella sito
+
+      - name: Controllo privacy
+        # Non negoziabile: se trova dati personali il ciclo fallisce e non
+        # pubblica niente. Su questa macchina non c'e' profilo.json, quindi
+        # dovrebbe passare sempre: se un giorno non passa, vogliamo saperlo.
+        run: python tools/selftest_pubblico.py
+
+      - name: Pubblica
+        run: |
+          git config user.name "Market Scout"
+          git config user.email "noreply@users.noreply.github.com"
+          git add -A sito
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica: niente da pubblicare."
+            exit 0
+          fi
+          git commit -m "ciclo $(date -u '+%Y-%m-%d %H:%M UTC') - ${{ steps.modo.outputs.etichetta }}"
+          # rebase prima del push: due cicli ravvicinati non devono litigare
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Riepilogo leggibile
+        if: always()
+        # In un file a parte, non incollato qui: il Python dentro un YAML
+        # dipende dall'indentazione del YAML, non si prova se non eseguendo il
+        # ciclo, e quando si rompe si rompe in produzione.
+        run: python tools/riepilogo.py sito/data.js

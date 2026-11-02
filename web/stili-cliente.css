@@ -1,0 +1,597 @@
+/* =========================================================================
+   AI Market Scout - la vista cliente.
+
+   Regola di questa vista: in pagina ci sono SOLO le card dei prodotti
+   selezionati, piu' l'agente con cui parlare. Tutto il resto - il racconto
+   del ciclo, le fonti, gli impegni, il glossario, il profilo - non e' stato
+   cancellato: e' passato dietro la card o dentro i due fogli che salgono dal
+   basso. Una pagina che spiega tutto in una schermata non la legge nessuno.
+
+   Tre livelli, un clic per volta:
+     fronte  -> cos'e', che voto ha, come va, quanto vale in euro
+     retro   -> la sintesi: costa / puo' arrivare / esco a / rischio / perche'
+     agente  -> la spiegazione distesa, chiedendo
+
+   Tutto vale solo per body[data-mode="simple"]: la vista analista resta
+   sobria, perche' la si guarda per lavorare.
+
+   I colori NON si inventano qui: vengono dai token di styles.css, gia'
+   verificati col validatore della palette.
+   ========================================================================= */
+
+:root {
+  --r-sm: 12px;
+  --r: 20px;
+  --r-lg: 26px;
+  --glass: rgba(252, 252, 251, 0.58);
+  --glass-line: rgba(255, 255, 255, 0.9);
+  --halo-1: rgba(42, 120, 214, 0.34);
+  --halo-2: rgba(27, 175, 122, 0.28);
+  --halo-3: rgba(235, 104, 52, 0.22);
+  --halo-4: rgba(42, 120, 214, 0.13);
+  --lift: 0 1px 2px rgba(11, 11, 11, .05), 0 10px 30px -12px rgba(11, 11, 11, .16);
+  --lift-hi: 0 2px 4px rgba(11, 11, 11, .06), 0 22px 48px -18px rgba(11, 11, 11, .28);
+}
+[data-theme="dark"] {
+  --glass: rgba(26, 26, 25, 0.56);
+  --glass-line: rgba(255, 255, 255, 0.08);
+  --halo-1: rgba(57, 135, 229, 0.30);
+  --halo-2: rgba(25, 158, 112, 0.22);
+  --halo-3: rgba(217, 89, 38, 0.18);
+  --halo-4: rgba(57, 135, 229, 0.12);
+  --lift: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -12px rgba(0, 0, 0, .6);
+  --lift-hi: 0 2px 4px rgba(0, 0, 0, .5), 0 22px 48px -18px rgba(0, 0, 0, .8);
+}
+
+/* Il grigio dei testi piccoli: --muted vale 3,19:1 sulla card di questa
+   vista, sotto il minimo di 4,5:1. Qui lo si scurisce a 4,66:1. Non si tocca
+   il token globale, perche' nella vista analista serve recessivo sulle
+   etichette degli assi, dove non e' testo da leggere.
+   Il tema sta su <html>, la vista su <body>: da qui la forma del selettore. */
+body[data-mode="simple"] { --muted: #6e6c67; }
+[data-theme="dark"] body[data-mode="simple"] { --muted: #a3a19a; }   /* 6,11:1 */
+
+/* ---- il fondo: aloni di colore che si muovono piano ------------------- */
+body[data-mode="simple"] {
+  position: relative;
+  background:
+    linear-gradient(185deg,
+      color-mix(in srgb, var(--series-1) 13%, var(--page)) 0%,
+      var(--page) 46%,
+      color-mix(in srgb, var(--series-3) 10%, var(--page)) 100%);
+  background-attachment: fixed;
+}
+body[data-mode="simple"]::before {
+  content: ""; position: fixed; inset: -8vmax; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(46vmax 40vmax at 22% -6%, var(--halo-1), transparent 66%),
+    radial-gradient(40vmax 36vmax at 86% 10%, var(--halo-2), transparent 64%),
+    radial-gradient(44vmax 40vmax at 50% 104%, var(--halo-3), transparent 66%),
+    radial-gradient(52vmax 44vmax at 50% 46%, var(--halo-4), transparent 70%);
+  animation: deriva 34s ease-in-out infinite alternate;
+}
+@keyframes deriva {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(1.5%, -1.5%, 0) scale(1.06); }
+  100% { transform: translate3d(-1.5%, 1%, 0) scale(1.02); }
+}
+@keyframes sali {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- impianto: una colonna stretta, niente barre laterali ------------- */
+body[data-mode="simple"] .main { max-width: 620px; padding: 0 20px 120px; margin: 0 auto; }
+.feed { display: grid; gap: 14px; }
+.feed > * { animation: sali .58s cubic-bezier(.22, .68, .3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms); }
+/* Rivelazione allo scorrimento: la classe la mette il JS solo se il browser ha
+   IntersectionObserver, e un timer di sicurezza la completa comunque. Una
+   pagina non deve mai dipendere da un'animazione per essere leggibile. */
+.feed.rivela > * { animation: none; opacity: 0; transform: translateY(22px) scale(.99);
+  transition: opacity .62s cubic-bezier(.22,.68,.3,1), transform .62s cubic-bezier(.22,.68,.3,1); }
+.feed.rivela > *.dentro { opacity: 1; transform: none; }
+
+/* ---- intestazione: un rigo, e si assottiglia scorrendo ---------------- */
+.topper {
+  position: sticky; top: 0; z-index: 30; margin: 0 -20px 4px; padding: 13px 20px;
+  display: flex; align-items: center; gap: 8px;
+  background: color-mix(in srgb, var(--page) 76%, transparent);
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid transparent; transition: border-color .25s, padding .25s;
+}
+.topper.giu { border-bottom-color: var(--border); padding-top: 9px; padding-bottom: 9px; }
+.topper .brandline { font-weight: 680; font-size: 14.5px; letter-spacing: -.01em; }
+.topper .brandline small { display: block; color: var(--muted); font-weight: 450;
+  font-size: 11.5px; letter-spacing: 0; }
+.topper .spacer { flex: 1; }
+.tbtn {
+  font: inherit; font-size: 16px; line-height: 1; cursor: pointer; color: var(--text-2);
+  border: 1px solid var(--border); background: var(--glass); border-radius: 50%;
+  width: 38px; height: 38px; display: grid; place-items: center; flex: 0 0 auto;
+  transition: transform .16s, color .16s, border-color .16s;
+}
+.tbtn:hover { color: var(--text-1); border-color: var(--axis); transform: translateY(-1px); }
+.tbtn:active { transform: scale(.94); }
+
+/* ---- il titolo: una riga sola, e l'onda ------------------------------- */
+.hero { padding: 14px 0 2px; }
+.hero .quando { display: inline-flex; align-items: center; gap: 7px; color: var(--muted);
+  font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+.hero .quando i { width: 6px; height: 6px; border-radius: 50%; background: var(--good);
+  animation: battito 2.6s ease-out infinite; }
+.hero .quando.finta i { background: var(--muted); animation: none; }
+@keyframes battito {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 9px color-mix(in srgb, var(--good) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 0%, transparent); }
+}
+.hero h1 {
+  font-size: clamp(27px, 7.4vw, 36px); line-height: 1.12; margin: 9px 0 0;
+  font-weight: 680; letter-spacing: -.028em; color: var(--text-1);
+  background: linear-gradient(170deg, var(--text-1) 36%,
+              color-mix(in srgb, var(--text-1) 50%, var(--series-1)) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.onda { position: relative; margin: 12px -20px 0; }
+.onda .tela { height: 96px; }
+.onda .eti { position: absolute; left: 20px; top: 0; display: flex; align-items: baseline;
+  gap: 8px; font-size: 11.5px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .07em; font-weight: 600; }
+.onda .eti b { font-size: 17px; letter-spacing: -.02em; text-transform: none;
+  font-variant-numeric: tabular-nums; }
+.onda .eti b.su { color: var(--up); }
+.onda .eti b.giu { color: var(--down); }
+
+/* ---- il conteggio sopra le card --------------------------------------- */
+.conto { display: flex; align-items: baseline; gap: 10px; padding: 6px 2px 0;
+  font-size: 12px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .08em; font-weight: 600; }
+.conto::after { content: ""; flex: 1; height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent); }
+
+/* =========================================================================
+   LA CARD CHE SI GIRA
+   L'altezza la fissa il JS sulla faccia piu' alta: le due facce sono
+   sovrapposte in 3D, quindi il flusso non puo' calcolarla da solo.
+   ========================================================================= */
+.flip { perspective: 1400px; }
+.flip-inner {
+  position: relative; width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform .62s cubic-bezier(.3, .8, .25, 1);
+}
+.flip.girata .flip-inner { transform: rotateY(180deg); }
+.faccia {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: linear-gradient(176deg,
+    color-mix(in srgb, var(--glass) 92%, white) 0%, var(--glass) 58%);
+  box-shadow: var(--lift); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+.faccia::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--glass-line) 22%,
+              var(--glass-line) 78%, transparent);
+}
+.faccia.dietro { transform: rotateY(180deg); }
+
+/* --- fronte --- */
+.fr-top { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center;
+  padding: 18px 20px 12px; }
+.fr-nome { font-size: 22px; font-weight: 680; letter-spacing: -.02em; line-height: 1.1;
+  margin-top: 10px; }
+.fr-nome .tk { display: block; font-size: 12px; color: var(--muted); font-weight: 600;
+  letter-spacing: .05em; margin-top: 4px; }
+/* Niente taglio a due righe: una descrizione tagliata a meta' obbliga a
+   cercare il resto da un'altra parte, e qui non c'e' un'altra parte. */
+.fr-cos { color: var(--text-2); font-size: 14.5px; line-height: 1.5; padding: 0 20px;
+  margin: 0; }
+.fr-spark { padding: 6px 20px 0; }
+.fr-spark .spark { height: 54px; position: relative; }
+.fr-euro { margin: 12px 20px 0; padding: 12px 14px; border-radius: var(--r-sm);
+  font-size: 15px; line-height: 1.45;
+  background: linear-gradient(100deg,
+    color-mix(in srgb, var(--series-1) 12%, transparent),
+    color-mix(in srgb, var(--series-1) 3%, transparent));
+  border: 1px solid color-mix(in srgb, var(--series-1) 20%, transparent); }
+
+/* --- retro: la sintesi --- */
+.dt-top { display: flex; align-items: center; gap: 10px; padding: 16px 20px 10px; }
+.dt-top .n { font-weight: 680; font-size: 17px; letter-spacing: -.015em; }
+.dt-top .v { margin-left: auto; font-size: 13px; color: var(--muted); font-weight: 600;
+  font-variant-numeric: tabular-nums; }
+.sint { display: grid; margin: 0 20px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); overflow: hidden; background: var(--surface-1); }
+.sint > div { display: grid; grid-template-columns: 1fr auto; align-items: baseline;
+  gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.sint > div:first-child { border-top: 0; }
+.sint dt { color: var(--text-2); font-size: 14px; }
+.sint dd { margin: 0; font-size: 17px; font-weight: 650; text-align: right;
+  font-variant-numeric: tabular-nums; }
+.sint dd i { display: block; font-size: 11.5px; font-weight: 500; font-style: normal;
+  color: var(--muted); }
+.perche { list-style: none; margin: 12px 20px 0; padding: 0; display: grid; gap: 8px; }
+.perche li { display: grid; grid-template-columns: 17px 1fr; gap: 9px; font-size: 14.5px;
+  line-height: 1.45; color: var(--text-2); }
+.perche li b { color: var(--text-1); font-weight: 650; }
+.perche .ic { color: var(--good); font-weight: 700; }
+
+/* --- i bottoni in fondo a ogni faccia --- */
+.cbar { display: flex; gap: 1px; margin-top: auto; border-top: 1px solid var(--border);
+  background: var(--border); }
+.cbar button {
+  flex: 1; font: inherit; font-size: 14.5px; font-weight: 620; cursor: pointer;
+  padding: 15px 10px; border: 0; background: var(--surface-1); color: var(--series-1);
+  transition: background .2s;
+}
+.cbar button:hover { background: color-mix(in srgb, var(--series-1) 9%, var(--surface-1)); }
+.cbar button.quieto { color: var(--text-2); }
+
+/* ---- anello del voto -------------------------------------------------- */
+.ring { position: relative; width: 70px; height: 70px; flex: 0 0 auto; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
+.ring .track { fill: none; stroke: var(--grid); stroke-width: 7; }
+.ring .val { fill: none; stroke-width: 7; stroke-linecap: round;
+  transition: stroke-dashoffset 1.1s cubic-bezier(.22,.68,.3,1);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, currentColor 40%, transparent)); }
+.ring .num { position: absolute; inset: 0; display: grid; place-items: center;
+  text-align: center; font-size: 21px; font-weight: 700; letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums; line-height: 1; }
+.ring .num small { font-size: 9px; font-weight: 600; color: var(--muted); display: block;
+  letter-spacing: .04em; margin-top: 2px; }
+
+/* ---- semaforo: colore + icona + parola, mai il colore da solo --------- */
+body[data-mode="simple"] .light {
+  font-size: 12px; letter-spacing: .02em; padding: 5px 12px 5px 9px; margin: 0;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+body[data-mode="simple"] .light.verde {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--good) 28%, transparent),
+              0 6px 18px -8px color-mix(in srgb, var(--good) 55%, transparent);
+}
+
+/* ---- sparkline: si disegna da sinistra -------------------------------- */
+.spark svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.spark .ln { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.spark .pt { stroke: var(--surface-1); stroke-width: 2; }
+.spark.disegna .ln { animation: traccia 1.3s cubic-bezier(.3,.6,.3,1) backwards; }
+@keyframes traccia { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+.spark .tip {
+  position: absolute; bottom: 100%; pointer-events: none; z-index: 5;
+  background: var(--text-1); color: var(--page); border-radius: 8px; padding: 5px 9px;
+  font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.spark .tip span { display: block; opacity: .7; font-size: 10.5px; }
+
+/* ---- la card "niente oggi": sobria, non un errore --------------------- */
+.vuoto { border: 1px dashed var(--axis); border-radius: var(--r); padding: 22px 20px;
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent); }
+.vuoto h2 { font-size: 19px; font-weight: 680; margin: 12px 0 8px; letter-spacing: -.015em; }
+.vuoto p { margin: 0; color: var(--text-2); font-size: 15px; line-height: 1.55; }
+
+/* ---- avviso del profilo di esempio ------------------------------------ */
+.avviso { display: flex; align-items: center; gap: 12px; padding: 13px 16px;
+  border-radius: var(--r-sm); font-size: 14.5px; line-height: 1.45;
+  background: color-mix(in srgb, var(--warning) 16%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--warning) 36%, transparent); }
+.avviso button { font: inherit; font-size: 14px; font-weight: 650; cursor: pointer;
+  white-space: nowrap; border: 0; border-radius: 999px; padding: 10px 16px;
+  background: var(--text-1); color: var(--page); }
+
+/* ---- chiusa in fondo -------------------------------------------------- */
+.chiusa { color: var(--muted); font-size: 12px; text-align: center; line-height: 1.6;
+  padding: 8px 10px 0; }
+
+/* ---- bottone della chat, sempre a portata di pollice ------------------ */
+.fab {
+  position: fixed; z-index: 35; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; gap: 10px; font: inherit; font-size: 15.5px;
+  font-weight: 650; cursor: pointer; color: #fff; border: 0; border-radius: 999px;
+  padding: 15px 22px; min-height: 56px;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--series-1) 86%, white), var(--series-1));
+  box-shadow: 0 10px 34px -10px color-mix(in srgb, var(--series-1) 92%, transparent),
+              0 2px 6px rgba(11, 11, 11, .2);
+  animation: sali .6s cubic-bezier(.22,.68,.3,1) .5s backwards;
+  transition: transform .18s, box-shadow .25s;
+}
+.fab:hover { transform: translateY(-3px) scale(1.02); }
+.fab:active { transform: translateY(0) scale(.97); }
+.fab .bolla { font-size: 18px; line-height: 1; }
+
+/* ---- fogli che salgono dal basso: conversazione e impostazioni -------- */
+.velo { position: fixed; inset: 0; z-index: 40; background: rgba(11, 11, 11, .42);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  opacity: 0; pointer-events: none; transition: opacity .3s; }
+.velo.on { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; z-index: 41; left: 0; right: 0; bottom: 0; max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: var(--page); border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-top: 1px solid var(--border); box-shadow: 0 -18px 50px -20px rgba(11, 11, 11, .45);
+  transform: translateY(101%); transition: transform .38s cubic-bezier(.22, .72, .28, 1);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.sheet.on { transform: none; }
+.sheet .maniglia { padding: 10px 0 2px; display: grid; place-items: center; }
+.sheet .maniglia i { width: 42px; height: 4px; border-radius: 2px; background: var(--axis); }
+.sheet .testa { display: flex; align-items: center; gap: 10px; padding: 6px 20px 12px;
+  border-bottom: 1px solid var(--border); }
+.sheet .testa .t { font-weight: 680; font-size: 16.5px; letter-spacing: -.01em; }
+.sheet .testa .t small { display: block; font-weight: 450; font-size: 12.5px; color: var(--muted); }
+.sheet .testa .spacer { flex: 1; }
+.sheet .chiudi { font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  color: var(--text-2); border: 1px solid var(--border); background: var(--surface-1);
+  border-radius: 999px; padding: 8px 15px; }
+.sheet .corpo { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 20px 6px;
+  flex: 1; min-height: 120px; }
+.sheet .piede { padding: 12px 20px 16px; border-top: 1px solid var(--border);
+  background: var(--page); }
+.chips-row { display: flex; gap: 8px; margin-bottom: 10px; overflow-x: auto;
+  flex-wrap: nowrap; padding-bottom: 4px; scrollbar-width: none; }
+.chips-row::-webkit-scrollbar { display: none; }
+.chips-row button { font: inherit; font-size: 14px; cursor: pointer; border-radius: 999px;
+  padding: 9px 15px; border: 1px solid var(--border); background: var(--surface-1);
+  color: var(--text-1); white-space: nowrap; flex: 0 0 auto; }
+.chips-row button:hover { background: var(--surface-2); }
+.thread { display: grid; gap: 14px; }
+.bubble { max-width: 92%; padding: 13px 15px; border-radius: 15px; font-size: 15.5px;
+  line-height: 1.55; animation: sali .34s cubic-bezier(.22,.68,.3,1); }
+.bubble.me { justify-self: end; border-bottom-right-radius: 4px; color: #fff;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--series-1) 88%, white), var(--series-1));
+  box-shadow: 0 8px 20px -12px color-mix(in srgb, var(--series-1) 90%, transparent); }
+.bubble.ag { justify-self: start; background: var(--surface-2); border-bottom-left-radius: 4px; }
+.bubble.ag p { margin: 0 0 10px; }
+.bubble.ag p:last-child { margin-bottom: 0; }
+.bubble.ag ul { margin: 0 0 10px; padding-left: 20px; }
+.bubble.ag li { margin-bottom: 5px; }
+.bubble .who { font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+.ask { display: flex; gap: 9px; flex-wrap: nowrap; }
+.ask input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 13px 15px;
+  border-radius: 12px; border: 1px solid var(--border); background: var(--surface-1);
+  color: var(--text-1); }
+.ask button { flex: 0 0 auto; font: inherit; font-size: 15.5px; font-weight: 650;
+  padding: 13px 18px; border-radius: 12px; border: 0; color: #fff; cursor: pointer;
+  background: var(--series-1); }
+.minicard { border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px;
+  margin: 10px 0; background: var(--surface-1); }
+.minicard .h { font-weight: 650; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.minicard .b { color: var(--text-2); font-size: 14.5px; margin-top: 4px; }
+.minicard button { margin-top: 10px; font: inherit; font-size: 14px; cursor: pointer;
+  border-radius: 9px; padding: 9px 14px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-1); }
+
+/* --- il foglio delle impostazioni: righe, non una pagina --------------- */
+.righe { display: grid; }
+.riga { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+  padding: 15px 2px; border-top: 1px solid var(--border); font-size: 15.5px; }
+.riga:first-child { border-top: 0; }
+.riga .d { color: var(--muted); font-size: 13px; margin-top: 3px; line-height: 1.45; }
+.riga .val { color: var(--text-2); font-size: 14px; text-align: right; }
+.riga button { font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-1); color: var(--text-1);
+  border-radius: 999px; padding: 9px 15px; white-space: nowrap; }
+.pallino { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 7px; vertical-align: 1px; }
+.pallino.ok { background: var(--good); }
+.pallino.no { background: var(--muted); }
+.know details { border-top: 1px solid var(--border); }
+.know details:first-child { border-top: 0; }
+.know summary { cursor: pointer; padding: 13px 2px; font-weight: 600; font-size: 15.5px;
+  list-style: none; transition: color .18s; }
+.know summary::-webkit-details-marker { display: none; }
+.know summary:before { content: "+ "; color: var(--muted); }
+.know details[open] summary:before { content: "- "; }
+.know summary:hover { color: var(--series-1); }
+.know p { margin: 0 0 13px; color: var(--text-2); font-size: 14.5px; line-height: 1.55; }
+
+/* ---- telefono --------------------------------------------------------- */
+@media (max-width: 620px) {
+  body[data-mode="simple"] .main { padding: 0 14px 112px; }
+  .topper { margin: 0 -14px 4px; padding: 12px 14px; }
+  .onda { margin: 10px -14px 0; }
+  .onda .tela { height: 86px; }
+  .onda .eti { left: 14px; }
+  .fr-top { padding: 15px 16px 10px; }
+  .fr-nome { font-size: 20px; }
+  .fr-cos, .fr-spark { padding-left: 16px; padding-right: 16px; }
+  .sint, .perche { margin-left: 16px; margin-right: 16px; }
+  .fr-euro { margin-left: 16px; margin-right: 16px; font-size: 14.5px; }
+  .dt-top { padding: 14px 16px 10px; }
+  .ring { width: 62px; height: 62px; }
+  .ring .num { font-size: 19px; }
+  .fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 14px 18px; }
+  .sheet .corpo, .sheet .piede, .sheet .testa { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ---- chi ha chiesto meno movimento non ne vede ------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  body[data-mode="simple"]::before { animation: none; }
+  .feed > *, .fab, .bubble { animation: none; }
+  .feed.rivela > * { opacity: 1; transform: none; transition: none; }
+  .hero .quando i { animation: none; }
+  .spark.disegna .ln { animation: none; }
+  .ring .val, .sheet, .flip-inner { transition: none; }
+  .fab:hover, .tbtn:hover { transform: none; }
+}
+
+/* =========================================================================
+   AGGIUNTE DELLA VERSIONE "SOLO OPPORTUNITA'"
+   Via il questionario, via il grafico del patrimonio, via la conversazione.
+   Restano le card con i loro dati, e questi sono i pezzi che servivano.
+   ========================================================================= */
+
+.hero .sotto { margin: 10px 0 0; color: var(--text-2); font-size: 14.5px;
+  line-height: 1.5; max-width: 46ch; }
+
+/* la tabella dei dati sul retro: tante righe, quindi righe basse e numeri
+   incolonnati, altrimenti non ci sta e non si confronta */
+.sint.fitta > div { padding: 8px 14px; }
+.sint.fitta dt { font-size: 13.5px; }
+.sint.fitta dd { font-size: 15px; font-weight: 600; }
+.sint.fitta dd i { font-size: 11px; }
+.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 13.5px; letter-spacing: -.01em; }
+.assente { color: var(--muted); font-weight: 500; font-style: italic; font-size: 13.5px; }
+
+/* i cinque voti per componente: barrette, non numeri sparsi. Si leggono in
+   blocco ("i conti vanno, il prezzo e' tirato") invece che uno per uno. */
+.comp { display: grid; gap: 6px; margin: 12px 20px 0; }
+.cq { display: grid; grid-template-columns: 58px 1fr 34px; gap: 9px; align-items: center;
+  font-size: 12.5px; color: var(--text-2); }
+.cq .b { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+.cq .b i { display: block; height: 100%; border-radius: 3px; background: var(--series-1);
+  transition: width .9s cubic-bezier(.22,.68,.3,1); }
+.cq .n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600;
+  color: var(--text-1); }
+
+/* "i piu' vicini": perche' un elenco vuoto senza spiegazione sembra un guasto */
+.vicini { margin-top: 18px; }
+.vic { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 0;
+  border-top: 1px solid var(--border); font-size: 14px; }
+.vic .t { font-weight: 650; color: var(--text-1); }
+.vic .s { font-variant-numeric: tabular-nums; font-weight: 650; color: var(--muted); }
+.vic .m { grid-column: 1 / -1; color: var(--text-2); font-size: 13px; line-height: 1.45; }
+
+@media (max-width: 620px) {
+  .comp { margin-left: 16px; margin-right: 16px; }
+  .sint.fitta > div { padding: 8px 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .cq .b i { transition: none; } }
+
+/* la card cambia altezza mentre gira: il retro porta tutti i dati, il fronte
+   il solo verdetto, e tenerli alla stessa altezza lasciava mezzo schermo vuoto */
+.flip { transition: height .62s cubic-bezier(.3, .8, .25, 1); }
+@media (prefers-reduced-motion: reduce) { .flip { transition: none; } }
+
+/* nel tema scuro il titolo delle voci del glossario spariva nel fondo */
+.know summary { color: var(--text-1); }
+
+/* =========================================================================
+   VISIONE, STELLINA, PRODOTTI SEGUITI
+   ========================================================================= */
+
+/* la visione: il blocco di testo che spiega che cosa farei e in quanto tempo.
+   Sta sul FRONTE perche' e' la cosa per cui si apre l'app, non un dettaglio. */
+.visione { margin: 14px 20px 0; padding: 14px 15px; border-radius: var(--r-sm);
+  background: var(--surface-1); border: 1px solid var(--border); }
+.visione .vt { font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+  font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+.visione p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.55; color: var(--text-2); }
+.visione p:last-child { margin-bottom: 0; }
+.visione .va { font-size: 16px; font-weight: 650; color: var(--text-1); }
+.visione .vr { color: var(--muted); font-size: 13.5px; }
+.visione .vc { border-left: 2px solid var(--serious); padding-left: 11px; font-size: 13.5px; }
+.visione .vs { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.visione .vs summary { cursor: pointer; font-size: 13.5px; font-weight: 600;
+  color: var(--series-1); list-style: none; }
+.visione .vs summary::-webkit-details-marker { display: none; }
+.visione .vs summary:before { content: "+ "; }
+.visione .vs[open] summary:before { content: "- "; }
+.visione .vs p { font-size: 13.5px; margin-top: 8px; }
+
+/* la stellina: grande abbastanza da premerla col pollice */
+.fr-destra { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.stella { font: inherit; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 6px;
+  border: 0; background: none; color: var(--muted); border-radius: 10px;
+  transition: transform .18s, color .18s; }
+.stella:hover { color: var(--warning); transform: scale(1.14); }
+.stella.on { color: var(--warning); }
+.stella:active { transform: scale(.9); }
+
+/* l'elenco dei seguiti */
+.scard.seg { padding: 4px 18px 16px; }
+.sr { padding: 14px 0; border-top: 1px solid var(--border); }
+.sr:first-child { border-top: 0; }
+.sr-cap { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: start; }
+.sr-nome { font-weight: 680; font-size: 16px; letter-spacing: -.01em; }
+.sr-nome span { display: block; font-size: 11.5px; color: var(--muted); font-weight: 600;
+  letter-spacing: .04em; margin-top: 3px; }
+.sr-var { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em; text-align: right; }
+.sr-var.su { color: var(--up); }
+.sr-var.giu { color: var(--down); }
+.sr-var i { display: block; font-size: 10.5px; font-weight: 500; font-style: normal;
+  color: var(--muted); letter-spacing: 0; }
+.sr-num { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 9px;
+  font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.sr-num b { color: var(--text-1); }
+.sr-az { margin-top: 9px; font-size: 14px; line-height: 1.5; padding-left: 11px;
+  border-left: 2px solid var(--axis); color: var(--text-2); }
+.sr.arrivato .sr-az { border-left-color: var(--good); }
+.sr.rotto .sr-az { border-left-color: var(--critical); }
+.sr.in.corso .sr-az, .sr .sr-az { }
+.scard.seg .small-note { margin-top: 14px; font-size: 12px; color: var(--muted); }
+
+@media (max-width: 620px) {
+  .visione { margin-left: 16px; margin-right: 16px; }
+  .scard.seg { padding-left: 14px; padding-right: 14px; }
+  .sr-cap { grid-template-columns: 1fr auto; }
+  .sr-cap .stella { grid-row: 1; grid-column: 2; }
+  .sr-var { grid-column: 1 / -1; text-align: left; margin-top: 4px; }
+  .sr-var i { display: inline; margin-left: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .stella:hover { transform: none; } }
+
+/* Quando la stima di valore tocca il tetto del modello, la card lo dice e si
+   vede: altrimenti il numero piu' grosso della lista sembrerebbe l'occasione
+   migliore, mentre e' quella su cui il programma sa di meno. */
+.fr-euro.incerto { background: linear-gradient(100deg,
+    color-mix(in srgb, var(--warning) 20%, transparent),
+    color-mix(in srgb, var(--warning) 6%, transparent));
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.fr-euro .nota { display: block; margin-top: 5px; font-size: 12.5px; color: var(--text-2);
+  font-weight: 600; }
+.visione .vl { border-left: 2px solid var(--warning); padding-left: 11px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  padding: 9px 11px; border-radius: 0 8px 8px 0; font-size: 13.5px; }
+
+/* =========================================================================
+   DUE PAGINE: opportunita' e preferiti
+   ========================================================================= */
+
+/* la stellina nell'intestazione porta all'altra pagina e dice quanti */
+.tbtn.stella-nav { position: relative; }
+.tbtn.stella-nav.pieni { color: var(--warning); border-color:
+  color-mix(in srgb, var(--warning) 45%, transparent); }
+.tbtn.stella-nav b { position: absolute; top: -4px; right: -4px; min-width: 17px;
+  height: 17px; padding: 0 4px; border-radius: 999px; background: var(--series-1);
+  color: #fff; font-size: 10.5px; font-weight: 700; line-height: 17px;
+  display: grid; place-items: center; box-shadow: 0 0 0 2px var(--page); }
+
+/* l'orizzonte: un dato, non un discorso */
+.visione .vo { display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px;
+  padding: 8px 11px; border-radius: 8px; background: var(--surface-2); }
+.visione .vo span { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  font-weight: 700; color: var(--muted); }
+.visione .vo b { font-size: 15px; color: var(--text-1); }
+
+/* la card di un prodotto seguito, nella sua pagina */
+.scard.sr { padding: 16px 18px; border-top: 0; }
+.scard.sr .sr-az { margin-top: 12px; }
+.scard.sr.arrivato { border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.scard.sr.rotto { border-color: color-mix(in srgb, var(--critical) 45%, transparent); }
+@media (max-width: 620px) {
+  .scard.sr { padding: 14px; }
+  .scard.sr .sint { margin-left: 0; margin-right: 0; }
+}
+
+/* "nuova": non c'era nell'ultima versione pubblicata. Il confronto giusto non
+   e' il ciclo precedente ma quello che l'utente ha visto finora. */
+.nuova { display: inline-block; margin-left: 8px; padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: #fff; background: linear-gradient(140deg,
+    color-mix(in srgb, var(--series-1) 85%, white), var(--series-1));
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--series-1) 90%, transparent); }
+.mossa { display: inline-block; margin-left: 8px; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .03em; }
+.mossa.su { color: var(--up); }
+.mossa.giu { color: var(--down); }
+.movimenti { margin: 2px 2px 0; padding: 11px 14px; border-radius: var(--r-sm);
+  font-size: 13.5px; line-height: 1.5; color: var(--text-2);
+  background: var(--surface-1); border: 1px solid var(--border); }
+.movimenti b { color: var(--text-1); }

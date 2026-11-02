@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AI Market Scout — il suo analista</title>
+<meta name="description" content="Analisi di mercato spiegate in parole semplici: cosa guardare oggi, perché, e quanto si rischia." />
+<link rel="stylesheet" href="styles.css" />
+<!-- livello grafico della vista cliente: sta in un file a parte perché la
+     vista analista non lo usa e perché così si rivede senza toccare la base -->
+<link rel="stylesheet" href="stili-cliente.css" />
+
+<!-- Installazione sul telefono: manifest, icone, colore della barra -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#1a1a19" />
+<link rel="icon" href="icona-192.png" sizes="192x192" type="image/png" />
+<link rel="apple-touch-icon" href="icona-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Market Scout" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+</head>
+<body>
+<!-- Una pagina sola: le opportunita'. La vista analista e' stata rimossa, e con
+     essa barra laterale, selettore di cliente e pannello laterale. -->
+<main class="main"><div id="view"></div></main>
+
+<script src="data.js"></script>
+<script src="charts.js"></script>
+<script src="onboarding.js"></script>
+<script src="app.js"></script>
+<script>
+  // Il service worker serve solo quando la pagina è online (https): aperta da
+  // disco la pagina funziona comunque, senza registrare niente.
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () { /* non essenziale */ });
+    });
+  }
+</script>
+</body>
+</html>
