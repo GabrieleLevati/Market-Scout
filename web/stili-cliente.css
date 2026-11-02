@@ -598,13 +598,24 @@ body[data-mode="simple"] .light.verde {
 
 /* Il bordino in cima alla card: raggruppa a vista senza aggiungere parole.
    Sta sopra e non intorno perche' un contorno colorato su una card bianca
-   grida, una riga di 3px si nota e non disturba la lettura. */
-.flip .faccia { position: relative; }
-.flip .faccia::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
-  border-radius: var(--r) var(--r) 0 0;
-  background: var(--tinta, transparent);
-}
+   grida, una riga di 3px si nota e non disturba la lettura.
+
+   SI FA COL BORDO, e non altrimenti, per due ragioni imparate rompendo:
+
+   1. NON si tocca `position` di .faccia. Le due facce sono sovrapposte con
+      `position: absolute; inset: 0`, ed e' quello che le tiene una sopra
+      l'altra: forzandole a `relative` sono tornate nel flusso, ognuna alta
+      come tutto il suo contenuto, e le card si sono accavallate rendendo la
+      pagina illeggibile. Il giro della carta ha smesso di funzionare.
+
+   2. NON si usa ::before, che era GIA' occupato dalla riga di luce in cima
+      al vetro (poco sopra, riga 176). Una regola piu' specifica sullo stesso
+      pseudo-elemento non si somma: lo sostituisce, e quel dettaglio
+      sparisce senza dire niente.
+
+   Il bordo non ha nessuno dei due problemi: sta nel posto giusto, segue
+   l'arrotondamento e non porta via niente a nessuno. */
+.flip .faccia { border-top-width: 3px; border-top-color: var(--tinta, var(--border)); }
 .tp1 { --tinta: var(--tp1); } .tp2 { --tinta: var(--tp2); }
 .tp3 { --tinta: var(--tp3); } .tp4 { --tinta: var(--tp4); }
 .tp5 { --tinta: var(--tp5); } .tp6 { --tinta: var(--tp6); }
@@ -654,10 +665,14 @@ body[data-mode="simple"] .light.verde {
 /* LA NAVIGAZIONE fra le tre pagine. Testo e non icone: "Da approfondire" si
    capisce, un simbolo per la stessa cosa no. Il numero accanto serve a sapere
    se vale la pena andarci prima di andarci. */
-.navpag { display: flex; gap: 6px; padding: 10px 20px 2px; max-width: 620px;
-  margin: 0 auto; overflow-x: auto; scrollbar-width: none; }
-.navpag::-webkit-scrollbar { display: none; }
-.nv { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+/* FERMA E CENTRATA, non scorrevole. Con lo scorrimento orizzontale le tre
+   voci partivano allineate a sinistra e la terza restava mezza fuori: una
+   navigazione che si puo' perdere di vista non e' una navigazione. Tre voci
+   stanno in larghezza anche su uno schermo da 360px, quindi vanno distribuite
+   e basta - e sotto quella larghezza si stringono i margini, non si scorre. */
+.navpag { display: flex; gap: 4px; padding: 10px 20px 2px; max-width: 620px;
+  margin: 0 auto; justify-content: center; }
+.nv { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px;
   font: inherit; font-size: 14px; font-weight: 700; letter-spacing: -0.1px;
   color: var(--muted); background: transparent; border: 0; cursor: pointer;
   padding: 8px 13px; border-radius: 999px; transition: background .16s, color .16s; }
@@ -706,7 +721,8 @@ body[data-mode="simple"] .light.verde {
 .hero .sub b { color: var(--text-2); font-weight: 750; }
 
 @media (max-width: 620px) {
-  .navpag { padding-left: 16px; padding-right: 16px; }
+  .navpag { padding-left: 10px; padding-right: 10px; gap: 2px; }
+  .nv { padding-left: 10px; padding-right: 10px; font-size: 13.5px; }
   .chipsrow { padding-left: 16px; padding-right: 16px; }
   .rimando { width: calc(100% - 32px); margin-left: 16px; margin-right: 16px; }
 }

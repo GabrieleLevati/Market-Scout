@@ -719,6 +719,43 @@ function main() {
   check('con un tipo solo il menu non compare, perche non servirebbe',
         vista(win).indexOf('class="chipsrow"') === -1);
 
+  console.log('\n11b. Il filtro di una pagina non svuota l altra');
+  /* IL DIFETTO, segnalato dall utente. Le due pagine contengono tipi che non
+     si sovrappongono: fra le opportunita solo azioni e immobiliare (gli
+     unici con bilanci da cui stimare un valore), fra quelli da approfondire
+     solo panieri, obbligazioni e materie prime. Con un filtro unico per
+     tutta l app, scegliere "Obbligazioni" di la svuotava completamente di
+     qua - e la pagina annunciava "il filtro non lascia passare niente" su
+     una scelta che l utente non aveva fatto li. */
+  win = avvia('', null, (d) => {
+    fissaOpportunita(d);
+    const base = d.opportunita.lista[0];
+    const copia = (tk, classe) => Object.assign({}, base,
+      { ticker: tk, asset_class: classe, senza_valore: classe !== 'Azioni' });
+    d.opportunita.lista = [copia('AAA', 'Azioni'), copia('DDD', 'Azioni')];
+    d.opportunita.osservati = [copia('BBB', 'ETF'), copia('CCC', 'Obbligazioni')];
+  });
+
+  // sulla pagina "da approfondire" si sceglie Obbligazioni
+  win.AMS.state.pagina = 'osservati';
+  win.AMS.tipiScrivi(['Obbligazioni']);
+  win.AMS.render();
+  check('la scelta vale sulla pagina dove e stata fatta',
+        win.AMS.carteVisibili().map(o => o.ticker).join(',') === 'CCC',
+        win.AMS.carteVisibili().map(o => o.ticker).join(','));
+
+  // e non deve toccare le opportunita, che sono tutte azioni
+  win.AMS.state.pagina = 'opportunita';
+  win.AMS.render();
+  const dopo = win.AMS.carteVisibili().map(o => o.ticker).join(',');
+  check('ma NON tocca la pagina delle opportunita', dopo === 'AAA,DDD', dopo);
+  check('e quella pagina non dichiara un filtro che nessuno ha scelto',
+        vista(win).indexOf('Il filtro non lascia passare niente') === -1);
+  check('la scelta di la resta di la', win.AMS.tipiLeggi('osservati').length === 1,
+        JSON.stringify(win.AMS.tipiLeggi('osservati')));
+  check('e di qua non c e nessun filtro', win.AMS.tipiLeggi('opportunita').length === 0,
+        JSON.stringify(win.AMS.tipiLeggi('opportunita')));
+
   console.log('\n' + (ok ? 'Tutti i controlli superati.' : 'ALCUNI CONTROLLI FALLITI.'));
   return ok ? 0 : 1;
 }

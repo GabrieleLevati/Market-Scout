@@ -50,6 +50,21 @@ def senza_commenti(sorgente: str) -> str:
     return re.sub(r"(?m)//.*$", "", senza_blocchi)
 
 
+def senza_commenti_css(sorgente: str) -> str:
+    """Un foglio di stile senza i commenti.
+
+    Serve una funzione a parte da senza_commenti(): quella toglie anche da
+    "//" a fine riga, che in CSS NON e' un commento e sta dentro ogni URL
+    (url(https://...)). E serve per forza: i commenti qui dentro spiegano
+    quali regole non si devono scrivere, quindi contengono le stesse parole
+    che i controlli cercano. Un controllo che legge i commenti ha trovato il
+    difetto dentro la sua spiegazione e, peggio, il falso riscontro si e'
+    mangiato la regola vera che veniva subito dopo: diceva "tutto a posto"
+    proprio mentre il difetto era presente.
+    """
+    return re.sub(r"/\*.*?\*/", "", sorgente, flags=re.S)
+
+
 def senza_rem(sorgente: str) -> str:
     """Un file .cmd senza le righe di commento, per la stessa ragione.
 
@@ -143,7 +158,11 @@ def main() -> int:
     # --lift e --text-1 - e dodici dichiarazioni sono state ignorate in
     # silenzio: pulsanti attivi senza fondo, riquadri senza superficie. Si
     # vedeva solo guardando una schermata, e solo sapendo cosa cercare.
-    css = "\n".join(leggi(n) for n in ("styles.css", "stili-cliente.css"))
+    # senza i commenti: le spiegazioni qui dentro contengono le stesse parole
+    # che questi controlli cercano, e un falso riscontro in un commento si
+    # mangia la regola vera che viene subito dopo.
+    css = senza_commenti_css(
+        "\n".join(leggi(n) for n in ("styles.css", "stili-cliente.css")))
     # Queste non si dichiarano nel foglio: le mette il programma sull'elemento
     # (--i l'ordine di comparsa, --len la lunghezza del tracciato da animare,
     # --tinta il colore del tipo, che arriva da una classe).
@@ -158,6 +177,42 @@ def main() -> int:
     for n in range(1, 7):
         check(f"la tinta del tipo {n} e' dichiarata e usata",
               f"--tp{n}:" in css and f"var(--tp{n})" in css)
+
+    print("\n6c. Il giro della carta: due regole che non si possono toccare")
+    # Rotte entrambe aggiungendo un bordino colorato in cima alla card, e
+    # scoperte dall'utente e non dai test: la pagina era diventata
+    # illeggibile, con le card accavallate una sull'altra.
+    #
+    # Le due facce stanno una SOPRA l'altra perche' sono in posizione
+    # assoluta. Riportarle nel flusso le fa diventare alte come tutto il loro
+    # contenuto, e la card perde l'altezza misurata: non e' un difetto
+    # grafico, e' il giro della carta che smette di funzionare.
+    regole_faccia = re.findall(r"(?ms)^[^@{}\n]*\.faccia[^{]*\{[^}]*\}", css)
+    relative = [r for r in regole_faccia
+                if re.search(r"position\s*:\s*relative", r)
+                and "::" not in r.split("{")[0]]
+    check("nessuna regola riporta .faccia nel flusso", not relative,
+          "trovata: " + (relative[0].split("{")[0].strip() if relative else "nessuna"))
+    check(".faccia resta in posizione assoluta",
+          any(re.search(r"position\s*:\s*absolute", r) for r in regole_faccia))
+
+    # Lo pseudo-elemento ::before della faccia e' GIA' la riga di luce in
+    # cima al vetro. Una seconda regola sullo stesso pseudo-elemento non si
+    # somma: lo sostituisce, e quel dettaglio sparisce in silenzio.
+    prima = re.findall(r"\.faccia::before", css)
+    check("un solo ::before sulla faccia, quello della riga di luce",
+          len(prima) == 1, f"{len(prima)} regole")
+    check("e il bordino del tipo usa il bordo, non uno pseudo-elemento",
+          re.search(r"\.flip \.faccia\s*\{[^}]*border-top-color", css) is not None)
+
+    # La navigazione non deve scorrere: tre voci stanno in larghezza, e una
+    # barra che scorre lascia la terza voce fuori dallo schermo.
+    nav = re.search(r"(?ms)^\.navpag\s*\{[^}]*\}", css)
+    check("la navigazione e' centrata",
+          nav is not None and "justify-content: center" in nav.group(0))
+    check("e non scorre in orizzontale",
+          nav is not None and "overflow-x" not in nav.group(0),
+          "con lo scorrimento la terza voce resta mezza fuori")
 
     print("\n6b. I dati nuovi devono arrivare sul telefono")
     # "Prima la rete" non basta. Un fetch normale puo' essere soddisfatto
