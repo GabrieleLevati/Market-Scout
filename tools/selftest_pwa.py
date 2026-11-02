@@ -189,6 +189,25 @@ def main() -> int:
     check("il ciclo nel cloud la rigenera, cioe' l'autore unico esiste",
           "--cartella sito" in yml)
 
+    # L'orario del ciclo con AI e' scritto in DUE posti: fra i cron e nel
+    # confronto che decide se usare il modello. Spostarne uno e dimenticare
+    # l'altro non rompe niente in modo visibile: il ciclo gira all'ora nuova
+    # ma prende il ramo "senza AI", e le analisi restano del solo calcolo
+    # senza che nessuno lo dichiari. E' il tipo di difetto che si scopre un
+    # mese dopo guardando perche' il modello non risponde mai.
+    dichiarati = set(re.findall(r"(?m)^\s*-\s*cron:\s*'([^']+)'", yml))
+    confrontati = set(re.findall(r"github\.event\.schedule\s*\}\}\"?\s*=\s*\"([^\"]+)\"", yml))
+    check("ci sono cron dichiarati", bool(dichiarati), str(sorted(dichiarati)))
+    check("ogni orario confrontato nel codice e' un cron che esiste davvero",
+          confrontati <= dichiarati,
+          f"orfani: {sorted(confrontati - dichiarati)}" if confrontati - dichiarati
+          else f"{len(confrontati)} confronto/i, tutti validi")
+    check("il ciclo non dipende dal solo cron, che GitHub non garantisce",
+          re.search(r"(?m)^\s*push:", yml) is not None,
+          "serve anche un innesco su push: lo scheduler non e' mai partito")
+    check("e il push non rincorre i commit del ciclo stesso",
+          "paths-ignore" in yml and "'sito/**'" in yml)
+
     with open(os.path.join(RADICE, ".gitattributes"), encoding="utf-8") as f:
         attributi = f.read()
     check("git ha l'ordine di non fondere i file generati",

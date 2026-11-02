@@ -152,15 +152,30 @@ profilo, e provare le modifiche prima di mandarle online con `git push`.
 
 | Ora italiana | Che fa | Perché |
 |---|---|---|
-| 02, 04, 06, 08 | solo calcolo | prezzi aggiornati, costa zero |
-| **10:05** | **con AI** | dopo il rinnovo della quota giornaliera |
-| 12, 14, 16, 18, 20 | solo calcolo | segue la giornata |
-| **22:05** | **con AI** | dopo la chiusura di New York |
+| 02:23, 04:23, 06:23, 08:23 | solo calcolo | prezzi aggiornati, costa zero |
+| **10:23** | **con AI** | dopo il rinnovo della quota giornaliera |
+| 12:23, 14:23, 16:23, 18:23, 20:23 | solo calcolo | segue la giornata |
+| **22:23** | **con AI** | dopo la chiusura di New York |
+| ogni push sul codice | solo calcolo | una modifica si vede online subito |
 | sabato e domenica | niente AI | borse chiuse: i prezzi non cambiano |
 
 Gli orari nel file sono in UTC (`.github/workflows/ciclo.yml`): d'inverno
-l'Italia è un'ora avanti, d'estate due. Se vuoi spostarli, è l'unica riga da
-toccare.
+l'Italia è un'ora avanti, d'estate due.
+
+**Due inneschi, non uno, e non è pignoleria.** Lo scheduler di GitHub è
+dichiaratamente *best effort*: accoda le esecuzioni programmate e nei momenti
+di carico le ritarda o le salta. Su questo repository, con i cron ai minuti
+`:05`, **non è partito niente**: quattro slot consecutivi a vuoto in cinque
+ore, mentre i lanci a mano riuscivano al primo colpo. Da qui due scelte: i
+minuti spostati a `:23`, fuori dall'inizio dell'ora dove la coda è più lunga,
+e un secondo innesco `push` che non dipende dallo scheduler.
+
+Se un giorno anche così i giri programmati non arrivassero, la via d'uscita
+esiste e non passa da GitHub: uno *scheduler esterno* che chiama l'API di
+GitHub per lanciare il workflow — un Cron Trigger di Cloudflare Workers
+(sei già su Cloudflare, e i cron sono nel piano gratuito) oppure un servizio
+come cron-job.org. Serve un token con permesso di avviare i workflow, ed è
+l'unico modo di avere una cadenza garantita.
 
 ### Che cosa si rinnova davvero, e ogni quanto
 
