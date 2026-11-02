@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import ssl
 import time
 import urllib.error
@@ -37,7 +38,8 @@ import urllib.request
 from .llm import CACHE_DIR, MAX_ATTEMPTS, MAX_CONSECUTIVE_FAILURES, SYSTEM_INSTRUCTION
 from .llm import TIMEOUT_S, quota_detail
 
-__all__ = ["Compatibile", "Coppia", "PRONTI", "MAX_ATTEMPTS"]
+__all__ = ["Compatibile", "Coppia", "PRONTI", "MAX_ATTEMPTS",
+           "scegli_modello", "adatti", "dimensione"]
 
 # Valori pronti per i fornitori verificati raggiungibili da questa rete.
 # Chi siamo, per chi ci chiede di presentarci. Serve davvero: vedi il commento
@@ -56,9 +58,36 @@ PRONTI = {
 NON_DI_TESTO = ("whisper", "tts", "guard", "vision", "embed", "rerank",
                 "transcribe", "image", "audio", "moderation")
 
-# In che ordine preferirli, a parita' di tutto: prima quelli grossi e
-# generalisti, perche' il lavoro qui e' giudizio e non chiacchiera.
-PREFERENZE = ("versatile", "70b", "-large", "32b", "instruct", "8b")
+# Modelli di testo ma specializzati su altro: una lingua sola, il codice, la
+# matematica, oppure sistemi che non sono un modello singolo. Vanno esclusi
+# anche se la famiglia e' nota: "mistral-saba-24b" e' Mistral, ma e' tarato
+# sull'arabo e qui dovrebbe giudicare titoli di borsa in italiano.
+NON_ADATTI = ("allam", "saba", "compound", "coder", "-code", "math", "prompt")
+
+# Le famiglie generaliste accettabili, in ordine di preferenza a parita' di
+# taglia. E' una LISTA BIANCA di proposito: un nome sconosciuto non viene
+# usato. Il motivo e' la direzione dell'errore. Se l'elenco invecchia e non
+# riconosce piu' niente, il programma resta senza secondo modello e le analisi
+# le fa il calcolo deterministico: si vede nel riepilogo e si aggiusta. Se
+# invece accettasse l'ignoto, un giorno sceglierebbe il modello sbagliato e
+# continuerebbe a produrre giudizi dall'aria credibile senza che nessuno se ne
+# accorga. Il secondo caso e' molto peggiore del primo.
+FAMIGLIE = ("gpt-oss", "llama", "qwen", "deepseek", "kimi", "mistral",
+            "mixtral", "gemma", "glm", "nemotron", "phi", "olmo")
+
+# Sotto questa taglia non si usa: per il giudizio su uno strumento finanziario
+# un modello piccolo non e' "un po' peggio", sbaglia di categoria.
+MINIMO_MILIARDI = 8
+
+
+def dimensione(nome: str) -> int | None:
+    """I miliardi di parametri letti dal nome, se il nome li dichiara.
+
+    "llama-3.3-70b-versatile" -> 70, "openai/gpt-oss-120b" -> 120,
+    "kimi-k2-instruct" -> None (non lo dice, e non si inventa).
+    """
+    numeri = [int(n) for n in re.findall(r"(\d+)\s*b(?![a-z0-9])", nome.lower())]
+    return max(numeri) if numeri else None
 
 
 def scegli_modello(nomi: list[str]) -> str | None:
@@ -68,15 +97,43 @@ def scegli_modello(nomi: list[str]) -> str | None:
     llama-3.3-70b-versatile e Google gemini-2.5-flash nello spazio di pochi
     mesi. Scrivere un nome a mano vuol dire mettere nel programma una data di
     scadenza che nessuno conosce. Meglio chiedere l'elenco e scegliere.
+
+    PERCHE' NON BASTA "il primo che somiglia". La prima versione, quando
+    nessuna preferenza combaciava, ripiegava su sorted(testo)[0], cioe' il
+    primo in ordine alfabetico. Sul catalogo di Groq quello e' "allam-2-7b":
+    sette miliardi di parametri, tarato sull'arabo. Il ciclo nel cloud lo ha
+    scelto, ha risposto senza errori, e il riepilogo diceva "3 risposte, 0
+    errori" - tutto verde, mentre le analisi le firmava un modello che non
+    doveva farle. Un ripiego alfabetico non e' un ripiego: e' una scelta
+    casuale travestita.
+
+    Ora si sceglie per taglia e famiglia, e se non c'e' niente di adatto si
+    restituisce None: meglio nessun secondo modello che quello sbagliato.
     """
-    testo = [n for n in nomi if not any(x in n.lower() for x in NON_DI_TESTO)]
-    if not testo:
-        return None
-    for chiave in PREFERENZE:
-        for n in testo:
-            if chiave in n.lower():
-                return n
-    return sorted(testo)[0]
+    lista = adatti(nomi)
+    return lista[0] if lista else None
+
+
+def adatti(nomi: list[str]) -> list[str]:
+    """I modelli usabili per questo lavoro, dal piu' adatto in giu'."""
+    candidati = []
+    for n in nomi:
+        basso = n.lower()
+        if any(x in basso for x in NON_DI_TESTO) or any(x in basso for x in NON_ADATTI):
+            continue
+        famiglia = next((i for i, f in enumerate(FAMIGLIE) if f in basso), None)
+        if famiglia is None:
+            continue
+        taglia = dimensione(n)
+        if taglia is not None and taglia < MINIMO_MILIARDI:
+            continue
+        # fascia prima della famiglia: fra un 70b e un 9b vince il 70b anche
+        # se la famiglia del secondo e' piu' in alto nell'elenco. Taglia
+        # sconosciuta = fascia media, per non penalizzare i nomi che non la
+        # dichiarano (kimi-k2-instruct) ne' promuoverli oltre i grossi.
+        fascia = 2 if (taglia or 30) >= 60 else 1 if (taglia or 30) >= 25 else 0
+        candidati.append((-fascia, famiglia, -(taglia or 30), n))
+    return [n for *_, n in sorted(candidati)]
 
 
 def _schema_a_parole(schema: dict) -> str:
@@ -274,6 +331,18 @@ class Compatibile:
                         body["model"] = scelto
                         self.stats["retries"] += 1
                         continue
+                    # Nessun modello adatto: si rinuncia al secondo modello e
+                    # si dice perche'. Senza questa riga il riepilogo mostra
+                    # un 404 e sembra un guasto, mentre e' una scelta: in
+                    # quell'elenco non c'era niente da usare.
+                    if not scelto:
+                        self.last_error += (
+                            f"\nIl modello {self.model} non esiste piu' e fra i "
+                            f"{len(disponibili)} disponibili non ce n'e' uno adatto "
+                            f"a questo lavoro (serve un generalista da almeno "
+                            f"{MINIMO_MILIARDI} miliardi di parametri). Le analisi "
+                            f"le fa il calcolo. Elenco: "
+                            f"{', '.join(sorted(disponibili)[:12])}")
                 riprovabile = e.code == 429 or e.code >= 500
                 # attesa 0 vuol dire "riprova subito", non "non riprovare":
                 # per non riprovare si passa None. La differenza conta, perche'

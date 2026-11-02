@@ -109,24 +109,35 @@ def _prova_secondo(chiave: str) -> int:
         print("404 = la CHIAVE FUNZIONA (il server l'ha accettata): e' il nome")
         print("del modello a non esistere piu' su questo fornitore.")
         print()
-        from engine.llm2 import NON_DI_TESTO, scegli_modello
+        from engine.llm2 import MINIMO_MILIARDI, adatti, dimensione
         disponibili = c.modelli()
         if not disponibili:
             print("Non riesco a leggere l'elenco dei modelli:", c.last_error)
             return 1
-        testo = [n for n in disponibili
-                 if not any(x in n.lower() for x in NON_DI_TESTO)]
+        usabili = adatti(disponibili)
         print(f"Modelli disponibili con questa chiave: {len(disponibili)}, "
-              f"di cui {len(testo)} adatti a questo lavoro:")
-        for n in testo:
-            print("   ", n)
-        scelto = scegli_modello(disponibili)
-        if scelto:
+              f"di cui {len(usabili)} adatti a questo lavoro, dal migliore:")
+        for n in usabili:
+            b = dimensione(n)
+            print(f"    {n}" + (f"  ({b} miliardi di parametri)" if b else ""))
+        scartati = [n for n in sorted(disponibili) if n not in usabili]
+        if scartati:
+            # Dirlo serve: il primo elenco mostrato non spiegava perche'
+            # mancassero dei nomi, e il programma ne ha scelto uno sbagliato
+            # senza che si potesse vedere il criterio.
+            print(f"  Scartati ({len(scartati)}): voce, immagini, filtri, modelli "
+                  f"specializzati o sotto i {MINIMO_MILIARDI} miliardi di parametri.")
+            print("   ", ", ".join(scartati[:12]) + (" ..." if len(scartati) > 12 else ""))
+        if usabili:
             print()
-            print(f"Il programma userebbe {scelto}, e da oggi lo sceglie da se'")
+            print(f"Il programma userebbe {usabili[0]}, e lo sceglie da se'")
             print("quando quello configurato non esiste piu'. Per fissarlo:")
-            print(f'    setx LLM2_MODEL "{scelto}"')
+            print(f'    setx LLM2_MODEL "{usabili[0]}"')
             print("    (e su GitHub: un segreto LLM2_MODEL con lo stesso valore)")
+        else:
+            print()
+            print("Nessun modello adatto in questo elenco: il programma")
+            print("rinuncia al secondo modello e lascia le analisi al calcolo.")
     return 1
 
 

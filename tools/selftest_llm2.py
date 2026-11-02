@@ -232,7 +232,7 @@ def main() -> int:
         # Groq llama-3.3-70b-versatile. Un nome scritto a mano nel programma e'
         # una data di scadenza che nessuno conosce. Qui il programma chiede
         # l'elenco, sceglie, e riprova.
-        from engine.llm2 import scegli_modello
+        from engine.llm2 import adatti, dimensione, scegli_modello
         check("scarta i modelli che non servono (voce, immagini, filtri)",
               scegli_modello(["whisper-large-v3", "llama-guard-4-12b",
                               "llama-nuovo-70b-versatile"])
@@ -240,6 +240,49 @@ def main() -> int:
         check("se non c'e' nessun modello di testo lo dice",
               scegli_modello(["whisper-large-v3", "playai-tts"]) is None)
         check("con un elenco vuoto non esplode", scegli_modello([]) is None)
+
+        print("\n4c. La scelta del modello non deve essere alfabetica")
+        # IL DIFETTO, visto in produzione. Il ripiego era sorted(testo)[0], e
+        # sul catalogo di Groq il primo in ordine alfabetico e' "allam-2-7b":
+        # 7 miliardi di parametri, tarato sull'arabo. Il ciclo lo ha scelto,
+        # ha risposto senza errori, e il riepilogo diceva "3 risposte, 0
+        # errori": tutto verde, con le analisi firmate da un modello che non
+        # doveva farle. Un difetto che si vede solo leggendo QUALE modello ha
+        # risposto, non SE ha risposto.
+        CATALOGO = ["allam-2-7b", "compound-beta", "gemma2-9b-it",
+                    "llama-3.1-8b-instant", "meta-llama/llama-guard-4-12b",
+                    "mistral-saba-24b", "openai/gpt-oss-120b",
+                    "openai/gpt-oss-20b", "playai-tts", "qwen/qwen3-32b",
+                    "whisper-large-v3", "moonshotai/kimi-k2-instruct"]
+        scelto = scegli_modello(CATALOGO)
+        check("su un catalogo vero sceglie il generalista piu' grosso",
+              scelto == "openai/gpt-oss-120b", str(scelto))
+        for cattivo, perche in (("allam-2-7b", "tarato su un'altra lingua, e 7b"),
+                                ("mistral-saba-24b", "tarato sull'arabo"),
+                                ("compound-beta", "non e' un modello singolo"),
+                                ("llama-3.1-8b-instant", "troppo piccolo per giudicare")):
+            check(f"non scegliere {cattivo} ({perche})", scelto != cattivo)
+        check("allam non entra nemmeno fra i candidati",
+              "allam-2-7b" not in adatti(CATALOGO))
+        check("l'ordine e' per taglia, non per nome",
+              adatti(CATALOGO)[:3] == ["openai/gpt-oss-120b", "qwen/qwen3-32b",
+                                       "moonshotai/kimi-k2-instruct"],
+              str(adatti(CATALOGO)[:3]))
+        check("un catalogo di soli modelli inadatti da' None, non un ripiego",
+              scegli_modello(["allam-2-7b", "whisper-large-v3",
+                              "mistral-saba-24b"]) is None)
+        check("un nome sconosciuto non viene usato a scatola chiusa",
+              scegli_modello(["fornitore-ignoto-999b"]) is None)
+
+        print("\n4d. La taglia si legge dal nome, e non si inventa")
+        for nome, atteso in (("llama-3.3-70b-versatile", 70),
+                             ("openai/gpt-oss-120b", 120),
+                             ("llama-3.1-8b-instant", 8),
+                             ("meta-llama/llama-4-scout-17b-16e-instruct", 17),
+                             ("qwen/qwen3-32b", 32),
+                             ("moonshotai/kimi-k2-instruct", None)):
+            check(f"{nome} -> {atteso}", dimensione(nome) == atteso,
+                  str(dimensione(nome)))
 
         finto("404modello")
         c = llm2_mod.Compatibile(enabled=True, api_key="finta", use_cache=False,
