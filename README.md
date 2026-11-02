@@ -388,7 +388,7 @@ segnalazioni), `web/index.html?mode=expert#pipeline`, `web/index.html?asset=AMD&
 
 | Modulo | Contenuto | FDD |
 |---|---|---|
-| `engine/providers.py` | adapter sui dati reali: Yahoo Finance, cache giornaliera, campi mancanti dichiarati | 3.2 |
+| `engine/providers.py` | adapter sui dati reali: Yahoo Finance, cache a scadenza per tipo (prezzi 90 min), campi mancanti dichiarati | 3.2 |
 | `engine/real_universe.py` | universo investibile dai dati veri, con qualità del dato per strumento | 3.2 |
 | `engine/universe.py` | generatore sintetico: 48 asset, OHLCV, bilanci, news, insider, earnings | 3.2 |
 | `engine/profile_file.py` | il profilo dell'utente da `profilo.json` | BR-01 |

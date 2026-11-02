@@ -162,6 +162,31 @@ Gli orari nel file sono in UTC (`.github/workflows/ciclo.yml`): d'inverno
 l'Italia è un'ora avanti, d'estate due. Se vuoi spostarli, è l'unica riga da
 toccare.
 
+### Che cosa si rinnova davvero, e ogni quanto
+
+Un ciclo ogni due ore non vuol dire che tutto si riscarica ogni due ore: ogni
+tipo di dato scade quando ha senso che scada (`engine/providers.py`, `TTL_S`).
+
+| Dato | Scade dopo | Perché |
+|---|---|---|
+| Prezzi e andamento | 90 minuti | si muovono durante la seduta: è il dato che vedi cambiare |
+| Notizie | 3 ore | arrivano durante il giorno, ma non ogni ora |
+| Bilanci societari | fine giornata | sono trimestrali: chiederli più spesso è spreco |
+
+Per cambiare la freschezza dei prezzi senza toccare il codice c'è
+`DATI_TTL_MIN` (minuti). Un valore basso rende i prezzi più vivi e moltiplica
+le richieste a Yahoo e le pubblicazioni su Cloudflare; `0` scarica sempre.
+
+In pagina, in alto, c'è l'orario a cui quei prezzi si riferiscono — **«prezzi
+delle 15:40»** a mercati aperti, **«chiusura delle 22:00»** dopo. È l'ora
+dell'ultimo scambio dichiarata dalla borsa, non quella del ciclo: a mercati
+chiusi resta ferma, invece di far sembrare appena presi dei prezzi di dieci
+ore prima.
+
+A mercati chiusi, quindi, i cicli notturni girano, non trovano niente di
+nuovo e **non pubblicano**: è giusto così, e si riconosce dal run verde con la
+riga «Nessuna modifica: niente da pubblicare».
+
 ## Quanto costa
 
 Zero. I repository privati hanno 2.000 minuti di Actions al mese: i dieci

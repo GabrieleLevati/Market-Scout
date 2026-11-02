@@ -405,6 +405,69 @@ function main() {
   check('si vede comunque la pagina delle opportunita', html.indexOf('class="feed"') > -1);
   check('nessun selettore di cliente', html.indexOf('<select') === -1);
 
+  console.log('\n9. L etichetta di freschezza dice di quando sono i prezzi');
+  /* PERCHE'. I prezzi ora si rinnovano ogni due ore, quindi i numeri in pagina
+     si muovono durante la giornata. Senza un orario accanto, chi guarda non ha
+     modo di sapere se sta leggendo il prezzo di adesso o quello di stanotte.
+     E l orario deve essere quello della BORSA, non quello del ciclo: il ciclo
+     gira anche alle 3 del mattino, e scrivere "aggiornato alle 3:05" sopra dei
+     prezzi fermi alla chiusura di New York e peggio che non scrivere niente,
+     perche invita a cercare un cambiamento che non ci puo essere. */
+  const quando = (prepara) => avvia('', null, prepara).AMS.quandoTesto();
+
+  const adesso = new Date();
+  const isoDiOggi = (ore, minuti) => {
+    const t = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate(),
+                       ore, minuti, 0);
+    return t.toISOString().replace(/\.\d+Z$/, '+00:00');
+  };
+
+  let testo = quando((d) => {
+    d.meta.data_mode = 'real';
+    d.data = { prezzi_al: isoDiOggi(15, 47), seduta_in_corso: true };
+  });
+  check('a seduta aperta dice l ora dei prezzi', /prezzi delle 15:47/.test(testo), testo);
+
+  testo = quando((d) => {
+    d.meta.data_mode = 'real';
+    d.data = { prezzi_al: isoDiOggi(22, 0), seduta_in_corso: false };
+  });
+  check('a seduta chiusa lo dice, con l ora della chiusura',
+        /chiusura delle 22:00/.test(testo), testo);
+
+  testo = quando((d) => {
+    d.meta.data_mode = 'real';
+    d.data = { prezzi_al: '2026-10-30T20:00:00+00:00', seduta_in_corso: false };
+  });
+  check('se i prezzi sono di un altro giorno lo dichiara, con la data',
+        /chiusura del 30\/10\/26/.test(testo), testo);
+  check('e non spaccia per odierno un prezzo vecchio',
+        testo.indexOf('prezzi delle') === -1, testo);
+
+  testo = quando((d) => {
+    d.meta.data_mode = 'real';
+    d.data = { prezzi_al: null };
+  });
+  check('senza l ora ripiega sulla data del controllo',
+        /controllato il/.test(testo), testo);
+
+  testo = quando((d) => {
+    d.meta.data_mode = 'real';
+    d.data = { prezzi_al: 'non una data' };
+  });
+  check('un orario illeggibile non stampa "NaN" in faccia al lettore',
+        testo.indexOf('NaN') === -1 && /controllato il/.test(testo), testo);
+
+  testo = quando((d) => { d.meta.data_mode = 'synthetic'; });
+  check('in dimostrazione resta dichiarato che i dati sono simulati',
+        /simulati/.test(testo), testo);
+
+  html = vista(avvia('', null, (d) => {
+    d.meta.data_mode = 'real';
+    d.data = { prezzi_al: isoDiOggi(15, 47), seduta_in_corso: true };
+  }));
+  check('e l etichetta finisce davvero in pagina', html.indexOf('prezzi delle 15:47') > -1);
+
   console.log('\n' + (ok ? 'Tutti i controlli superati.' : 'ALCUNI CONTROLLI FALLITI.'));
   return ok ? 0 : 1;
 }

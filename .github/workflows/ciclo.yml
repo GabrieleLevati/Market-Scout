@@ -99,6 +99,7 @@ jobs:
         # all'ultima versione buona.
         run: |
           python tools/selftest_opportunita.py
+          python tools/selftest_dati.py
           python tools/selftest_pwa.py
           python tools/selftest_llm.py
           python tools/selftest_llm2.py

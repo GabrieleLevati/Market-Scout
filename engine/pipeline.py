@@ -80,8 +80,18 @@ def load_assets(source: str, only: list[str] | None, log: "RunLog") -> tuple[dic
                  if a["asset_class"] not in CONTINUI]
         sempre = [a["series"]["date"][-1] for a in rows
                   if a["asset_class"] in CONTINUI]
+        # L'ora dell'ultimo scambio piu' recente fra tutti gli strumenti,
+        # dichiarata dalla borsa. E' quello che la pagina mostra come "prezzi
+        # delle 15:47": a mercati aperti avanza a ogni ciclo, a mercati chiusi
+        # resta fermo all'ora della chiusura. Se usassimo l'ora del ciclo,
+        # ogni giro di notte farebbe sembrare appena aggiornati dei prezzi
+        # vecchi di dieci ore.
+        orari = [a["data_quality"].get("market_time") for a in rows
+                 if a.get("data_quality", {}).get("market_time")]
         info = {"source": "Yahoo Finance (dati reali)", "http": y.stats["http"],
                 "cache": y.stats["cache"], "errors": y.stats["errors"],
+                "scaduti": y.stats.get("scaduti", 0),
+                "prezzi_al": max(orari, default=None),
                 "last_bar": max(borse, default="-"),
                 "last_bar_continui": max(sempre, default=None),
                 # Se l'ultima barra porta la data di oggi, la seduta non e'
@@ -101,7 +111,11 @@ def load_assets(source: str, only: list[str] | None, log: "RunLog") -> tuple[dic
                 "insider": False}
         log.step(3, "Data provider", "Scarico dei dati reali",
                  f"{len(assets)} strumenti da Yahoo Finance: {info['http']} chiamate, "
-                 f"{info['cache']} dalla cache del giorno, "
+                 f"{info['cache']} dalla cache ancora valida, "
+                 + (f"{info['scaduti']} riscaricati perche' scaduti, "
+                    if info.get("scaduti") else "")
+                 + (f"prezzi all'ultimo scambio del {info['prezzi_al']}, "
+                    if info.get("prezzi_al") else "")
                  + ("seduta di borsa del " if info["seduta_in_corso"]
                     else "ultima seduta di borsa ")
                  + f"{info['last_bar']}"

@@ -203,6 +203,11 @@ def load_real_universe(provider: Yahoo | None = None, only: list[str] | None = N
                 "source": "Yahoo Finance",
                 "bars": len(series["close"]),
                 "last_bar": series["date"][-1],
+                # L'ora dell'ultimo scambio secondo la borsa. Sta qui e non in
+                # "series" perche' series e' un dizionario di liste parallele,
+                # che gli indicatori e il grafico scorrono per indice: un
+                # valore singolo in mezzo le romperebbe.
+                "market_time": chart.get("market_time"),
                 "fundamental_fields": f.get("fields_available", 0),
                 "fundamentals": has_fundamentals,
                 "valuable": valuable,

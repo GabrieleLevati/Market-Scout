@@ -438,7 +438,8 @@ def cmd_data_check(args) -> None:
         print(f"{s['ticker']:12s}{RED}escluso{RESET}: {s['reason']}")
     print(f"\n{len(assets)} strumenti, {sum(1 for a in assets if a['valuable'])} valutabili, "
           f"{len(skipped)} esclusi. Chiamate: {y.stats['http']} in rete, "
-          f"{y.stats['cache']} dalla cache del giorno.")
+          f"{y.stats['cache']} dalla cache ancora valida, "
+          f"{y.stats.get('scaduti', 0)} riscaricate perche' scadute.")
     print(f"{DIM}Non disponibili senza contratto dati: operazioni degli insider, "
           f"bilanci di ETF e obbligazioni, metriche on-chain delle crypto.{RESET}")
 

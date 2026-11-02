@@ -16,19 +16,21 @@ scrive (è il comportamento già previsto in `valuation.confidence`).
 Nessun dato di analisti: non chiediamo rating né target price, perché il valore
 lo stima il sistema (`valuation.py`) e il giudizio lo dà Gemini.
 
-Tutto passa da una cache su disco giornaliera (`.data_cache/`): un secondo
-ciclo nello stesso giorno non tocca la rete.
+Tutto passa da una cache su disco (`.data_cache/`) che scade per tipo di dato:
+i prezzi dopo 90 minuti, le notizie dopo tre ore, i bilanci alla fine della
+giornata. Vedi `TTL_S` qui sotto per il perche' di quei tempi.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import ssl
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".data_cache"
@@ -37,6 +39,59 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 TIMEOUT_S = 25
 PACE_S = 0.35               # distanza minima tra due chiamate allo stesso host
 MIN_BARS = 260              # sedute minime per calcolare EMA200 e un anno di storia
+
+# QUANTO RESTA VALIDO UN DATO SCARICATO, in secondi, per tipo.
+#
+# PERCHE' ESISTE QUESTA TABELLA. Prima la cache era intestata al solo giorno:
+# il primo ciclo della giornata scaricava, gli altri undici rileggevano gli
+# stessi file. Lo si vedeva nel file pubblicato - "http": 0, "cache": 150 -
+# cioe' un ciclo intero senza una sola richiesta di rete. I calcoli giravano
+# su numeri identici, concludevano giustamente che non c'era niente di nuovo,
+# e la pagina restava ferma fino al giorno dopo. Il controllo "ogni due ore"
+# era reale nei calcoli e cieco sui dati.
+#
+# I tempi non sono una preferenza: seguono quanto spesso quel dato cambia
+# davvero. Chiedere i bilanci ogni due ore sarebbe spreco puro, e chiedere i
+# prezzi una volta al giorno e' quello che aveva questo difetto.
+TTL_S = {
+    "chart": 90 * 60,       # i prezzi si muovono durante la seduta
+    "news": 180 * 60,       # le notizie arrivano, ma non ogni ora
+    "statements": None,     # i bilanci sono trimestrali: dentro la giornata mai
+}
+
+# Si cambia senza toccare il codice: DATI_TTL_MIN=30 per provare piu' spesso,
+# DATI_TTL_MIN=0 per scaricare sempre.
+try:
+    _minuti = os.environ.get("DATI_TTL_MIN", "").strip()
+    if _minuti:
+        TTL_S["chart"] = max(0.0, float(_minuti)) * 60
+except ValueError:
+    pass                    # valore scritto male: si tiene quello di default
+
+# Per quanti giorni tenere i file della cache. Nessuno legge quelli di ieri -
+# il nome porta la data e si cerca solo quella di oggi - ma senza pulizia si
+# accumulano: nel cloud la cartella viene portata avanti da un ciclo all'altro
+# e crescerebbe per sempre.
+GIORNI_CACHE = 2
+_pulizia_fatta = False
+
+
+def pulisci_cache(giorni: int = GIORNI_CACHE) -> int:
+    """Butta i file di cache dei giorni passati. Restituisce quanti."""
+    limite = date.today() - timedelta(days=max(0, giorni))
+    buttati = 0
+    for f in CACHE_DIR.glob("*.json"):
+        try:
+            giorno = date.fromisoformat(f.stem[-10:])
+        except ValueError:
+            continue                        # nome che non porta una data: non si tocca
+        if giorno < limite:
+            try:
+                f.unlink()
+                buttati += 1
+            except OSError:
+                pass                        # file in uso o permessi: non vale un errore
+    return buttati
 
 FUND_FIELDS_ANNUAL = ["annualTotalRevenue", "annualNetIncome", "annualDilutedEPS",
                       "annualTotalDebt", "annualStockholdersEquity", "annualFreeCashFlow",
@@ -50,31 +105,87 @@ class DataError(RuntimeError):
 
 
 class Yahoo:
-    """Client minimale: niente dipendenze, cache giornaliera, un tentativo di
-    recupero sugli errori temporanei."""
+    """Client minimale: niente dipendenze, cache a scadenza per tipo di dato,
+    un tentativo di recupero sugli errori temporanei."""
 
     def __init__(self, use_cache: bool = True, pace_s: float = PACE_S):
+        global _pulizia_fatta
         self.use_cache = use_cache
         self.pace_s = pace_s
         self._last = 0.0
-        self.stats = {"http": 0, "cache": 0, "errors": 0, "bytes": 0}
+        self.stats = {"http": 0, "cache": 0, "errors": 0, "bytes": 0, "scaduti": 0}
         self.log: list[dict] = []
         if use_cache:
             CACHE_DIR.mkdir(exist_ok=True)
+            if not _pulizia_fatta:
+                _pulizia_fatta = True
+                pulisci_cache()
 
     # ------------------------------------------------------------------ rete
     def _cache_file(self, kind: str, symbol: str) -> Path:
         safe = urllib.parse.quote(symbol, safe="")
         return CACHE_DIR / f"{kind}_{safe}_{date.today().isoformat()}.json"
 
+    def _eta_s(self, cf: Path, involucro: dict | None) -> float | None:
+        """Quanti secondi ha il dato in cache, o None se non si puo' dire.
+
+        L'ora dello scarico sta DENTRO il file e non si deduce dalla data di
+        modifica. Il motivo e' il cloud: la cartella viene conservata fra un
+        ciclo e l'altro da actions/cache, che la impacchetta con tar, e per
+        quanto tar conservi le date di modifica non e' una proprieta' su cui
+        valga la pena appoggiare la freschezza dei prezzi. Un dato che dice da
+        se' quando e' stato scaricato non dipende da come viene trasportato.
+        La data di modifica resta come ripiego per i file scritti dalla
+        versione precedente, che non la portavano dentro.
+        """
+        if involucro is not None:
+            # Il file dichiara la sua ora. Se quella dichiarazione non si
+            # legge, l'eta' e' IGNOTA e si riscarica: non si ripiega sulla
+            # data di modifica, che proprio in questo caso mentirebbe. Il file
+            # puo' essere stato scritto un minuto fa - copiato, ripristinato
+            # da un archivio, sincronizzato - mentre il dato dentro e' di
+            # ieri. Si chiama fresco un file, non un prezzo.
+            try:
+                return time.time() - datetime.fromisoformat(
+                    involucro.get("_scaricato")).timestamp()
+            except (TypeError, ValueError):
+                return None
+        try:
+            return time.time() - cf.stat().st_mtime
+        except OSError:
+            return None
+
+    def _dalla_cache(self, kind: str, cf: Path):
+        """Il dato in cache se e' ancora valido, altrimenti None."""
+        try:
+            grezzo = json.loads(cf.read_text(encoding="utf-8"))
+        except Exception:
+            return None                     # file troncato o illeggibile: si riscarica
+        if isinstance(grezzo, dict) and "_scaricato" in grezzo:
+            involucro, dati = grezzo, grezzo.get("dati")
+        else:
+            involucro, dati = None, grezzo  # formato vecchio: solo il contenuto
+        if dati is None:
+            return None
+        ttl = TTL_S.get(kind)
+        if ttl is None:
+            return dati                     # vale per tutta la giornata
+        eta = self._eta_s(cf, involucro)
+        # eta negativa = ora dello scarico nel futuro (orologio spostato,
+        # file arrivato da un'altra macchina): non e' freschezza, e' un dato
+        # di cui non sappiamo l'eta'. Si riscarica.
+        if eta is None or eta < 0 or eta > ttl:
+            return None
+        return dati
+
     def _fetch(self, kind: str, url: str, symbol: str) -> dict:
         cf = self._cache_file(kind, symbol)
         if self.use_cache and cf.exists():
-            try:
+            dati = self._dalla_cache(kind, cf)
+            if dati is not None:
                 self.stats["cache"] += 1
-                return json.loads(cf.read_text(encoding="utf-8"))
-            except Exception:
-                pass
+                return dati
+            self.stats["scaduti"] += 1
         for attempt in (1, 2):
             wait = self.pace_s - (time.monotonic() - self._last)
             if wait > 0:
@@ -90,7 +201,10 @@ class Yahoo:
                 self.stats["bytes"] += len(raw)
                 data = json.loads(raw)
                 if self.use_cache:
-                    cf.write_text(json.dumps(data), encoding="utf-8")
+                    cf.write_text(json.dumps({
+                        "_scaricato": datetime.now(timezone.utc)
+                                              .isoformat(timespec="seconds"),
+                        "dati": data}), encoding="utf-8")
                 self.log.append({"kind": kind, "symbol": symbol, "status": "ok"})
                 return data
             except urllib.error.HTTPError as e:
@@ -137,6 +251,11 @@ class Yahoo:
         if len(rows) < min_bars:
             raise DataError(f"{symbol}: solo {len(rows)} sedute disponibili "
                             f"(ne servono {min_bars})")
+        # L'ora dell'ultimo scambio secondo la borsa, non secondo noi. Serve a
+        # dire in pagina "prezzi delle 15:47": e' l'unico orario onesto, perche'
+        # se il mercato e' chiuso resta fermo all'ora della chiusura invece di
+        # avanzare a ogni ciclo e far sembrare fresco un dato che non lo e'.
+        mt = meta.get("regularMarketTime")
         return {
             "date": [r[0] for r in rows],
             "open": [r[1] for r in rows],
@@ -147,6 +266,9 @@ class Yahoo:
             "currency": meta.get("currency", "USD"),
             "exchange": meta.get("fullExchangeName", ""),
             "symbol": meta.get("symbol", symbol),
+            "market_time": (datetime.fromtimestamp(mt, timezone.utc)
+                            .isoformat(timespec="seconds")
+                            if isinstance(mt, (int, float)) and mt > 0 else None),
         }
 
     def fx_to_eur(self, currency: str) -> float | None:

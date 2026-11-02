@@ -27,6 +27,23 @@ const fmt = {
     return fmt.int(v);
   },
   date: (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(2, 4),
+  // L'ora di un istante UTC, scritta nel fuso di chi guarda. Il motore
+  // dichiara gli orari in UTC perche' e' l'unico modo di confrontarli fra
+  // borse diverse; chi legge li vuole nella sua ora.
+  ora: (iso) => {
+    const t = new Date(iso);
+    if (isNaN(t)) return '';
+    return String(t.getHours()).padStart(2, '0') + ':'
+         + String(t.getMinutes()).padStart(2, '0');
+  },
+  // Vero se quell'istante cade nel giorno di chi guarda.
+  oggi: (iso) => {
+    const t = new Date(iso);
+    if (isNaN(t)) return false;
+    const o = new Date();
+    return t.getFullYear() === o.getFullYear() && t.getMonth() === o.getMonth()
+        && t.getDate() === o.getDate();
+  },
 };
 
 function el(tag, attrs = {}, parent = null) {
