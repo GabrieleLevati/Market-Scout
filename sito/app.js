@@ -282,7 +282,7 @@ function statoSeguito(ticker, salvato) {
   // caso il suo prezzo e i suoi dati stanno li'. Cercando nella sola lista
   // delle opportunita' un osservato seguito sarebbe risultato "non ho piu' i
   // dati di questo strumento", che e' falso.
-  const opp = carte().find(o => o.ticker === ticker);
+  const opp = carteTutte().find(o => o.ticker === ticker);
   const prezzoOggi = a ? a.price : (opp ? opp.price : null);
   if (prezzoOggi === null || prezzoOggi === undefined) {
     return { nome: salvato.nome || ticker, ticker: ticker, noto: false,
@@ -343,9 +343,104 @@ function fascia(score) {
    quei tre non contassero nella stessa maniera la stella di una card
    seguirebbe un altro strumento. Meglio un elenco unico che tre liste da
    tenere allineate a mano. */
-function carte() {
+function carteTutte() {
   const o = D.opportunita || {};
   return (o.lista || []).concat(o.osservati || []);
+}
+
+/* IL FILTRO PER TIPO DI PRODOTTO.
+   E' un filtro di VISUALIZZAZIONE, non un profilo: la lista che il motore
+   produce resta identica per tutti, e questo cambia solo cosa si vede. La
+   differenza non e' formale. Un elenco calcolato sul profilo di chi guarda
+   sarebbe una raccomandazione personalizzata, che e' un'altra cosa dal
+   mostrare informazione uguale per tutti con una lente davanti.
+   Vuoto = nessun filtro = tutto. */
+const TIPI_CHIAVE = 'ams_tipi_v1';
+
+function tipiLeggi() {
+  try {
+    const v = JSON.parse(localStorage.getItem(TIPI_CHIAVE) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+
+function tipiScrivi(v) {
+  try { localStorage.setItem(TIPI_CHIAVE, JSON.stringify(v)); } catch (e) { /* no-op */ }
+}
+
+function tipiAlterna(tipo) {
+  const ora = tipiLeggi();
+  const i = ora.indexOf(tipo);
+  if (i > -1) ora.splice(i, 1); else ora.push(tipo);
+  tipiScrivi(ora);
+  return ora;
+}
+
+function passaIlFiltro(o) {
+  const scelti = tipiLeggi();
+  return !scelti.length || scelti.indexOf(o.asset_class) > -1;
+}
+
+/* Le card DAVVERO a schermo, nell'ordine in cui sono disegnate: la pagina
+   corrente, con il filtro applicato. Serve separata da carteTutte() perche'
+   l'indice di una card e' usato dal disegno, dall'anello col voto e dalla
+   stellina: se quelli contassero sull'elenco completo mentre a schermo ce
+   n'e' un sottoinsieme, la stella di una card seguirebbe un altro strumento.
+   carteTutte() resta per le ricerche per ticker, che devono trovare anche
+   quello che il filtro sta nascondendo. */
+function carteVisibili() {
+  const o = D.opportunita || {};
+  // pagina() e non state.pagina: la pagina corrente va letta da un posto
+  // solo. Leggendo lo stato grezzo qui, un valore inatteso faceva disegnare
+  // l'intestazione di una pagina e le card dell'altra - e l'ho visto davvero,
+  // in una schermata con un prezzo obiettivo sulla pagina di quelli che per
+  // definizione non ce l'hanno.
+  const base = pagina() === 'osservati' ? (o.osservati || []) : (o.lista || []);
+  return base.filter(passaIlFiltro);
+}
+
+/* LA NAVIGAZIONE. Prima erano due pagine e bastava un bottone che alternava;
+   con tre serve dire dove si e' e dove si puo' andare. Sta sotto
+   l'intestazione e non dentro: sul telefono cinque icone in una barra alta
+   38px diventano bersagli che si sbagliano. */
+function navRiga() {
+  const o = D.opportunita || {};
+  const pag = pagina();
+  const voci = [
+    ['opportunita', 'Opportunità', (o.lista || []).length],
+    ['osservati', 'Da approfondire', (o.osservati || []).length],
+    ['seguiti', 'Che segue', Object.keys(seguitiLeggi()).length],
+  ];
+  return `<nav class="navpag" aria-label="Sezioni">
+    ${voci.map(([id, testo, n]) => `<button class="nv${pag === id ? ' on' : ''}"
+      data-act="pagina" data-p="${id}" aria-current="${pag === id}">${esc(testo)}${
+      n ? `<b>${n}</b>` : ''}</button>`).join('')}
+  </nav>`;
+}
+
+function pagina() {
+  return state.pagina === 'seguiti' ? 'seguiti'
+       : state.pagina === 'osservati' ? 'osservati' : 'opportunita';
+}
+
+/* IL MENU DEI TIPI. I pulsanti esistono solo per i tipi presenti in questo
+   ciclo, col loro numero: un filtro che offre "Crypto" in una giornata senza
+   nessuna crypto fa premere e non succede niente, e sembra rotto. */
+function chipsTipi(lista) {
+  const conta = {};
+  (lista || []).forEach((o) => {
+    conta[o.asset_class] = (conta[o.asset_class] || 0) + 1;
+  });
+  const tipi = Object.keys(conta).sort((a, b) => conta[b] - conta[a] || a.localeCompare(b));
+  if (tipi.length < 2) return '';           // un tipo solo: filtrare non serve
+  const scelti = tipiLeggi();
+  const attivi = scelti.filter(t => tipi.indexOf(t) > -1).length;
+  return `<div class="chipsrow" role="group" aria-label="Tipi di prodotto">
+    <button class="chip${attivi ? '' : ' on'}" data-act="tipo" data-t="">Tutti</button>
+    ${tipi.map(t => `<button class="chip${scelti.indexOf(t) > -1 ? ' on' : ''}"
+      data-act="tipo" data-t="${esc(t)}"
+      aria-pressed="${scelti.indexOf(t) > -1}">${esc(t)}<b>${conta[t]}</b></button>`).join('')}
+  </div>`;
 }
 
 /* Un numero da mostrare, o null se non c'e'. Serve perche' rigaDato() salta
@@ -381,6 +476,19 @@ const TAGLIA = {
   plurale:   { 'Mega cap': 'grandissime', 'Large cap': 'grandi',
                'Mid cap': 'medie', 'Small cap': 'piccole' },
 };
+
+/* L'etichetta in cima alla card.
+   Il motore classifica per fascia di punteggio, e per un 94 scrive
+   "Opportunità eccezionale". Giusto nella pagina delle opportunita'; sulla
+   pagina "Da approfondire", che dichiara a voce alta "non sono proposte
+   d'acquisto", la stessa parola si contraddice con la riga sopra. Il
+   punteggio e' alto davvero, e va detto: quello che non si puo' chiamare
+   opportunita' e' uno strumento di cui non si sa quanto vale. */
+function etichettaFascia(o) {
+  const c = String(o.classification || '');
+  if (!o.senza_valore) return c;
+  return /opportunit/i.test(c) ? 'Punteggio alto' : c;
+}
 
 function targhetta(o) {
   const num = (o.asset_class === 'Azioni' || o.asset_class === 'REIT')
@@ -428,7 +536,8 @@ function opportunityCard(o, idx) {
         <div class="fr-top">
           <div>
             <span class="light ${o.score >= 85 ? 'verde' : 'giallo'}">
-              <span class="ic">${o.score >= 85 ? '✓' : '▲'}</span>${esc(o.classification)}</span>
+              <span class="ic">${o.score >= 85 ? '✓' : '▲'}</span>${
+              esc(etichettaFascia(o))}</span>
             ${nuova ? '<span class="nuova">nuova</span>' : ''}${
               salita ? '<span class="mossa su">&#9650; salita</span>'
               : scesa ? '<span class="mossa giu">&#9660; scesa</span>' : ''}
@@ -595,63 +704,84 @@ function vistaSeguiti() {
 function viewSimple() {
   // Due pagine, un disegno: l'intestazione e il foglio "come lavoro" sono gli
   // stessi, cambia il corpo. Cosi' non ci sono due impianti da tenere allineati.
-  const inSeguiti = state.pagina === 'seguiti';
-  const quanti = Object.keys(seguitiLeggi()).length;
-  const altra = inSeguiti ? 'opportunita' : 'seguiti';
-  const opp = (D.opportunita && D.opportunita.lista) || [];
+  const pag = pagina();
+  const tutte = (D.opportunita && D.opportunita.lista) || [];
+  const osservati = (D.opportunita && D.opportunita.osservati) || [];
   const scartati = (D.opportunita && D.opportunita.scartati) || [];
   const soglia = (D.opportunita && D.opportunita.soglia) || D.meta.score_threshold;
+  // le card di QUESTA pagina, filtrate: e' l'elenco che si disegna
+  const opp = carteVisibili();
+  const totalePagina = pag === 'osservati' ? osservati.length : tutte.length;
 
   let i = 0;
   const blocchi = [];
   const push = (html) => { if (html) blocchi.push(html.split('<#i>').join(String(i++))); };
 
-  const titolo = opp.length === 0 ? 'Nessuna opportunità, in questo momento.'
-    : opp.length === 1 ? 'Una opportunità.' : opp.length + ' opportunità.';
-
-  push(`<div class="hero" style="--i:<#i>">
-    <span class="quando${D.meta.data_mode === 'real' ? '' : ' finta'}"><i></i>${
-      esc(quandoTesto())}</span>
-    <h1>${esc(titolo)}</h1>
-  </div>`);
-
-  opp.forEach((o, k) => push(opportunityCard(o, k)));
-
-  /* GLI OSSERVATI, in una sezione loro e non mescolati sopra.
-     Sono strumenti che hanno superato la soglia ma di cui non si puo' stimare
-     un valore: ETF, obbligazionari, materie prime non hanno bilanci. Senza
-     valore stimato non c'e' prezzo obiettivo, quindi non sono opportunita' e
-     metterli nella stessa lista direbbe una cosa falsa. Ma tenerli invisibili
-     ne nascondeva di buoni: un ETF a 75 punti era il secondo punteggio della
-     giornata e non arrivava in pagina. Quindi: visibili, separati, e con
-     scritto perche' sono separati. */
-  const osservati = (D.opportunita && D.opportunita.osservati) || [];
-  if (osservati.length) {
-    push(`<div class="sezione" style="--i:<#i>">
-      <h2>${osservati.length === 1 ? 'Ne tengo d’occhio un altro'
-            : 'Ne tengo d’occhio altri ' + osservati.length}</h2>
-      <p>Hanno superato ${soglia} punti, ma sono panieri, obbligazioni o materie
-        prime: non hanno bilanci, quindi non posso calcolare quanto valgono e non
-        le do un prezzo obiettivo. Non sono proposte d’acquisto e non le
-        segnalo con una notifica.</p>
+  if (pag === 'seguiti') {
+    // Una pagina, non un'appendice. Prima questa vista veniva ANCHE accodata
+    // in fondo alle opportunita': la pagina aveva due intestazioni e la lista
+    // dei seguiti sotto le card, che era esattamente quello che non doveva
+    // fare. Nessun controllo se ne era accorto, perche' verificavano che le
+    // cose ci fossero e non che fossero al loro posto.
+    blocchi.push(vistaSeguiti());
+  } else if (pag === 'osservati') {
+    push(`<div class="hero" style="--i:<#i>">
+      <span class="quando${D.meta.data_mode === 'real' ? '' : ' finta'}"><i></i>${
+        esc(quandoTesto())}</span>
+      <h1>${osservati.length === 0 ? 'Niente da approfondire, ora.'
+        : osservati.length === 1 ? 'Uno da approfondire.'
+        : osservati.length + ' da approfondire.'}</h1>
+      <p class="sub">Hanno superato ${soglia} punti su 100, ma sono panieri,
+        obbligazioni o materie prime: non hanno bilanci da cui calcolare quanto
+        valgono, quindi <b>non le do un prezzo obiettivo</b>. Non sono proposte
+        d’acquisto e non le segnalo con una notifica.</p>
     </div>`);
-    osservati.forEach((o, k) => push(opportunityCard(o, opp.length + k)));
+    push(chipsTipi(osservati));
+    opp.forEach((o, k) => push(opportunityCard(o, k)));
+  } else {
+    push(`<div class="hero" style="--i:<#i>">
+      <span class="quando${D.meta.data_mode === 'real' ? '' : ' finta'}"><i></i>${
+        esc(quandoTesto())}</span>
+      <h1>${tutte.length === 0 ? 'Nessuna opportunità, in questo momento.'
+        : tutte.length === 1 ? 'Una opportunità.' : tutte.length + ' opportunità.'}</h1>
+    </div>`);
+    push(chipsTipi(tutte));
+    opp.forEach((o, k) => push(opportunityCard(o, k)));
+
+    const nov = D.novita || {};
+    const nuove = (nov.nuove || []).length;
+    const uscite = (nov.uscite || []).length;
+    if (!nov.primo_giro && (nuove || uscite)) {
+      push(`<p class="movimenti" style="--i:<#i>">${[
+        nuove ? `<b>${nuove}</b> ${nuove === 1 ? 'nuova' : 'nuove'} rispetto all'ultimo controllo`
+              : '',
+        uscite ? `<b>${uscite}</b> ${uscite === 1 ? 'è scesa' : 'sono scese'} sotto ${soglia} e
+                  ${uscite === 1 ? 'non la propongo più' : 'non le propongo più'}
+                  (${esc((nov.uscite || []).join(', '))})` : '',
+      ].filter(Boolean).join(' · ')}</p>`);
+    }
+
+    // Il rimando all'altra pagina: senza, chi sta qui non sa che esiste.
+    if (osservati.length) {
+      push(`<button class="rimando" style="--i:<#i>" data-act="pagina" data-p="osservati">
+        <span><b>${osservati.length}</b> ${osservati.length === 1 ? 'altro strumento'
+          : 'altri strumenti'} ${osservati.length === 1 ? 'ha' : 'hanno'} superato
+          ${soglia} punti, ma non posso stimarne il valore</span>
+        <i>Da approfondire &rarr;</i></button>`);
+    }
   }
 
-  const nov = D.novita || {};
-  const nuove = (nov.nuove || []).length;
-  const uscite = (nov.uscite || []).length;
-  if (!nov.primo_giro && (nuove || uscite)) {
-    push(`<p class="movimenti" style="--i:<#i>">${[
-      nuove ? `<b>${nuove}</b> ${nuove === 1 ? 'nuova' : 'nuove'} rispetto all'ultimo controllo`
-            : '',
-      uscite ? `<b>${uscite}</b> ${uscite === 1 ? 'è scesa' : 'sono scese'} sotto ${soglia} e
-                ${uscite === 1 ? 'non la propongo più' : 'non le propongo più'}
-                (${esc((nov.uscite || []).join(', '))})` : '',
-    ].filter(Boolean).join(' · ')}</p>`);
+  // Il filtro nasconde tutto: va detto, altrimenti sembra una giornata vuota.
+  if (pag !== 'seguiti' && totalePagina && !opp.length) {
+    push(`<div class="vuoto" style="--i:<#i>">
+      <h2>Il filtro non lascia passare niente</h2>
+      <p>Ci ${totalePagina === 1 ? 'sarebbe 1 strumento' : 'sarebbero ' + totalePagina
+        + ' strumenti'} in questa pagina, ma ${totalePagina === 1 ? 'non è' : 'nessuno è'}
+        del tipo che ha scelto. Tocchi <b>Tutti</b> qui sopra per rivederli.</p>
+    </div>`);
   }
 
-  if (!opp.length) {
+  if (pag === 'opportunita' && !tutte.length) {
     /* Il testo cambia se ci sono osservati, e non e' pignoleria: dire
        "nessuno ha superato 70" mentre poco sopra c'e' una card con 75 punti
        e' una contraddizione che si legge in pagina. Gli osservati HANNO
@@ -677,8 +807,6 @@ function viewSimple() {
       </div>` : ''}
     </div>`);
   }
-
-  push(vistaSeguiti());
 
   push(`<p class="chiusa" style="--i:<#i>">Supporto decisionale su dati di mercato:
     non sostituisce il consulente finanziario. Nessun ordine viene inviato.
@@ -750,19 +878,15 @@ function viewSimple() {
 
   return `
   <div class="topper" id="topper">
-    <div class="brandline">${inSeguiti ? 'Che segue' : 'Opportunità'}<small>AI Market
+    <div class="brandline">${pag === 'seguiti' ? 'Che segue'
+      : pag === 'osservati' ? 'Da approfondire' : 'Opportunità'}<small>AI Market
       Scout · ${F.date(D.meta.today)}</small></div>
     <div class="spacer"></div>
-    <button class="tbtn stella-nav${quanti && !inSeguiti ? ' pieni' : ''}"
-      data-act="pagina" data-p="${altra}"
-      title="${inSeguiti ? 'Torna alle opportunità'
-        : (quanti ? 'I prodotti che segue' : 'Niente ancora sotto osservazione')}">${
-      inSeguiti ? '&#8592;' : (quanti ? '&#9733;' : '&#9734;')}${
-      quanti && !inSeguiti ? `<b>${quanti}</b>` : ''}</button>
     <button class="tbtn" id="confBtn" title="Come lavoro e da dove prendo i dati">&#9432;</button>
     <button class="tbtn" id="themeBtn2" title="Chiaro o scuro">&#9681;</button>
   </div>
-  <div class="feed">${inSeguiti ? vistaSeguiti() : blocchi.join('\n')}</div>
+  ${navRiga()}
+  <div class="feed">${blocchi.join('\n')}</div>
   ${conf}`;
 }
 
@@ -999,7 +1123,7 @@ function afterSimple() {
   const c = Charts.colors();
   // carte(), non solo la lista: gli osservati hanno anello e grafico come le
   // altre, e devono contare nello stesso ordine con cui sono stati disegnati.
-  const opp = carte();
+  const opp = carteVisibili();
 
   opp.forEach((o, i) => {
     const a = asset(o.ticker);
@@ -1067,7 +1191,7 @@ function afterSimple() {
         // dei seguiti, perche' un nuovo disegno farebbe ripartire le
         // animazioni di tutte le card e si perderebbe il punto di scorrimento.
         const i = Number(el.dataset.i);
-        const o = carte()[i];
+        const o = carteVisibili()[i];
         if (!o) return;
         const ora = seguiAlterna(o);
         el.textContent = ora ? '★' : '☆';
@@ -1078,9 +1202,17 @@ function afterSimple() {
                   : `Non seguo più ${o.name}.`);
         render();
       } else if (act === 'pagina') {
-        state.pagina = el.dataset.p === 'seguiti' ? 'seguiti' : 'opportunita';
+        const p = el.dataset.p;
+        state.pagina = (p === 'seguiti' || p === 'osservati') ? p : 'opportunita';
         render();
         if (typeof window.scrollTo === 'function') window.scrollTo({ top: 0 });
+      } else if (act === 'tipo') {
+        // "Tutti" (data-t vuoto) azzera il filtro; gli altri si accendono e
+        // spengono. La scelta resta nel browser di chi guarda: non e' un
+        // profilo e non esce da qui.
+        const t = el.dataset.t || '';
+        if (!t) tipiScrivi([]); else tipiAlterna(t);
+        render();
       } else if (act === 'smetti') {
         const t = el.dataset.t;
         const d = seguitiLeggi();
@@ -1191,5 +1323,7 @@ document.addEventListener('visibilitychange', rientro);
 window.AMS = { state: state, render: render, seguiAlterna: seguiAlterna,
                seguitiLeggi: seguitiLeggi, statoSeguito: statoSeguito,
                quandoTesto: quandoTesto, rientro: rientro, tempo: tempo,
+               carteVisibili: carteVisibili, carteTutte: carteTutte,
+               tipiLeggi: tipiLeggi, tipiScrivi: tipiScrivi,
                user: user, demoUser: demoUser, localUser: localUser };
 })();
