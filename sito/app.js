@@ -355,17 +355,26 @@ function carteTutte() {
    sarebbe una raccomandazione personalizzata, che e' un'altra cosa dal
    mostrare informazione uguale per tutti con una lente davanti.
    Vuoto = nessun filtro = tutto. */
-const TIPI_CHIAVE = 'ams_tipi_v1';
+/* UNA SCELTA PER PAGINA, non una per tutta l'app.
+   Le due pagine contengono tipi che non si sovrappongono: fra le opportunita'
+   ci sono solo azioni e immobiliare (gli unici con bilanci da cui stimare un
+   valore), fra quelli da approfondire solo panieri, obbligazioni e materie
+   prime. Con un filtro unico, scegliere "Obbligazioni" da una parte svuotava
+   completamente l'altra - e la pagina diceva "il filtro non lascia passare
+   niente" su una scelta che l'utente non aveva fatto li'. */
+const TIPI_CHIAVE = 'ams_tipi_v2_';
 
-function tipiLeggi() {
+function tipiLeggi(pag) {
   try {
-    const v = JSON.parse(localStorage.getItem(TIPI_CHIAVE) || '[]');
+    const v = JSON.parse(localStorage.getItem(TIPI_CHIAVE + (pag || pagina())) || '[]');
     return Array.isArray(v) ? v : [];
   } catch (e) { return []; }
 }
 
-function tipiScrivi(v) {
-  try { localStorage.setItem(TIPI_CHIAVE, JSON.stringify(v)); } catch (e) { /* no-op */ }
+function tipiScrivi(v, pag) {
+  try {
+    localStorage.setItem(TIPI_CHIAVE + (pag || pagina()), JSON.stringify(v));
+  } catch (e) { /* no-op */ }
 }
 
 function tipiAlterna(tipo) {

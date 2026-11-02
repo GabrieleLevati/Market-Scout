@@ -32,7 +32,7 @@
 // La versione la riscrive build_web.py con l'impronta dei file pubblicati
 // (DEMO-35): cambia quando cambia la pagina, cosi' chi ha l'app installata
 // riceve la versione nuova senza doverlo sapere.
-const VERSIONE = 'ams-e06ef4ca18';
+const VERSIONE = 'ams-f3ab4c0f09';
 const GUSCIO = [
   './',
   './styles.css',
