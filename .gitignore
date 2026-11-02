@@ -14,6 +14,11 @@ giornaliero.log
 # La dashboard privata: contiene il profilo se c'e'. Si pubblica "sito/".
 web/data.js
 
+# La copia pubblica generata dal PC, per il caricamento a mano di emergenza.
+# Fuori dal repository di proposito: "sito/" la scrive il ciclo nel cloud, e
+# deve avere un solo autore (vedi il commento in giornaliero.cmd).
+da-caricare/
+
 # Python
 __pycache__/
 *.pyc

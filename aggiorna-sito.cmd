@@ -1,15 +1,20 @@
 @echo off
 rem =====================================================================
-rem  Prepara la cartella da mettere online, con le analisi di Gemini.
+rem  Un ciclo completo adesso, a mano, con le analisi dell'AI.
 rem
-rem  Doppio clic su questo file e aspetta. Alla fine trovi la cartella
-rem  "pubblica" pronta da trascinare su Cloudflare Pages.
+rem  NORMALMENTE NON SERVE: il ciclo nel cloud fa la stessa cosa ogni due
+rem  ore, anche a PC spento, e pubblica da solo (AUTOMATICO.md). Questo
+rem  comando serve quando vuoi vedere il risultato subito, senza aspettare.
 rem
 rem  Che cosa fa, in ordine:
 rem    1. il ciclo sui dati veri con le analisi dell'AI (tetto 8 chiamate)
 rem    2. aggiorna la TUA dashboard in web\
-rem    3. prepara sito\ SENZA il tuo profilo e le tue posizioni
-rem    4. controlla che in sito\ non ci siano dati personali
+rem    3. prepara da-caricare\ SENZA il tuo profilo e le tue posizioni
+rem    4. controlla che in da-caricare\ non ci siano dati personali
+rem
+rem  Scrive in "da-caricare" e non in "sito" di proposito: "sito" e' la
+rem  cartella che il cloud rigenera e pubblica, e due autori sullo stesso
+rem  file generato significa conflitti dentro i dati (e' gia' successo).
 rem
 rem  Il passo 4 deve dire "Nessuna fuga di dati personali": se dice altro,
 rem  NON pubblicare e chiedi aiuto.
@@ -32,8 +37,8 @@ python build_web.py %FLAGS%
 if errorlevel 1 goto errore
 
 echo.
-echo  [3/4] Preparo la cartella "sito", senza i tuoi dati
-python build_web.py %FLAGS% --pubblico --cartella sito
+echo  [3/4] Preparo la cartella "da-caricare", senza i tuoi dati
+python build_web.py %FLAGS% --pubblico --cartella da-caricare
 if errorlevel 1 goto errore
 
 echo.
@@ -43,9 +48,9 @@ if errorlevel 1 goto nonpubblicare
 
 echo.
 echo  ==================================================================
-echo   Pronto. Ora trascina la cartella "sito" su Cloudflare Pages:
-echo   dash.cloudflare.com - Workers ^& Pages - il tuo progetto -
-echo   Create new deployment - trascina la cartella - Deploy.
+echo   Pronto. I dati nuovi sono nella tua dashboard (web\index.html).
+echo   Se vuoi anche metterli online subito senza aspettare il ciclo
+echo   automatico, lancia carica-sito.cmd: carica "da-caricare".
 echo  ==================================================================
 echo.
 start "" "%~dp0"

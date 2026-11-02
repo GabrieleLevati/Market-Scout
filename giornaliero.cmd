@@ -102,28 +102,28 @@ if not "%ESITO%"=="0" (
   echo [%date% %time%]   codice -1073741510 = interrotto, 3221225786 = Ctrl+C>> giornaliero.log
 )
 
-rem --- La cartella "sito" si rigenera a ogni ciclo, cosi' e' sempre pronta da
-rem     trascinare su Cloudflare. Non contiene il tuo profilo ne' le tue
-rem     posizioni, e il controllo subito dopo lo verifica: se trova dati
-rem     personali scrive l'allarme nel log e tu NON devi pubblicare.
-python build_web.py %FLAGS% --pubblico --cartella sito>> giornaliero.log 2>&1
+rem --- La copia pubblica, in "da-caricare". NON in "sito".
+rem
+rem     QUESTA RIGA E' COSTATA UN FILE ROTTO. "sito" e' la cartella che il
+rem     ciclo nel cloud rigenera e salva nel repository ogni due ore: e'
+rem     quella che Cloudflare pubblica. Finche' la rigenerava anche questo
+rem     script, lo stesso file aveva due autori, e alla prima sincronizzazione
+rem     git ha scritto dentro sito\data.js i suoi marcatori di conflitto
+rem     (<<<<<<< HEAD): il file non era piu' leggibile e il sito mostrava la
+rem     pagina vuota. Un file generato non si fonde, si rigenera.
+rem
+rem     Quindi: "sito" ha un solo autore, il cloud. Qui si scrive altrove, in
+rem     una cartella che git ignora, e serve solo se un giorno devi caricare
+rem     a mano perche' il cloud e' fermo (carica-sito.cmd apre quella).
+python build_web.py %FLAGS% --pubblico --cartella da-caricare>> giornaliero.log 2>&1
 python tools\selftest_pubblico.py>> giornaliero.log 2>&1
 set ESITO=%errorlevel%
 if not "%ESITO%"=="0" (
-  echo [%date% %time%] ATTENZIONE: il controllo privacy NON e passato, non pubblicare la cartella sito>> giornaliero.log
+  echo [%date% %time%] ATTENZIONE: il controllo privacy NON e passato, non caricare la cartella da-caricare>> giornaliero.log
 )
 
-rem --- Pubblicazione automatica (facoltativa): togli il "rem" dalle righe
-rem     seguenti SOLO dopo aver fatto una volta il git init dentro sito e
-rem     preparare e pubblicare ogni volta la cartella per gli amici. Il
-rem     data.js pubblico NON contiene il tuo profilo ne le tue posizioni.
-rem     Serve aver fatto una volta il git init dentro sito (vedi ISTRUZIONI.md).
-rem python build_web.py %FLAGS% --pubblico --cartella sito>> giornaliero.log 2>&1
-rem python tools\selftest_pubblico.py>> giornaliero.log 2>&1
-rem pushd sito
-rem git add -A>> ..\giornaliero.log 2>&1
-rem git commit -m "ciclo del %date% %time%">> ..\giornaliero.log 2>&1
-rem git push>> ..\giornaliero.log 2>&1
-rem popd
+rem --- Non c'e' nessuna pubblicazione da fare da qui. La fa il ciclo nel
+rem     cloud (.github/workflows/ciclo.yml), che gira anche a PC spento e
+rem     pubblica da solo: vedi AUTOMATICO.md.
 
 echo [%date% %time%] ciclo concluso (%MODO%)>> giornaliero.log

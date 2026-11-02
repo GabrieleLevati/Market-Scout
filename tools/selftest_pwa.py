@@ -50,6 +50,15 @@ def senza_commenti(sorgente: str) -> str:
     return re.sub(r"(?m)//.*$", "", senza_blocchi)
 
 
+def senza_rem(sorgente: str) -> str:
+    """Un file .cmd senza le righe di commento, per la stessa ragione.
+
+    Qui i commenti spiegano proprio che "--cartella sito" non si deve usare:
+    cercarlo nel sorgente intero lo troverebbe nella spiegazione.
+    """
+    return re.sub(r"(?mi)^\s*rem\b.*$", "", sorgente)
+
+
 def main() -> int:
     print("1. Il manifest: dove si apre l'app")
     man = json.loads(leggi("manifest.webmanifest"))
@@ -126,6 +135,54 @@ def main() -> int:
     check("il service worker si registra solo su http(s)",
           "location.protocol.indexOf('http')" in html,
           "aperta da disco la pagina deve funzionare comunque")
+
+    print("\n7. La cartella pubblicata ha UN SOLO autore")
+    # Il difetto che questo gruppo impedisce: "sito" era rigenerata sia dai
+    # cicli sul PC sia da quello nel cloud, e tutti e due la salvavano nel
+    # repository. Alla prima divergenza git ha fatto il suo mestiere e ha
+    # scritto i marcatori di conflitto DENTRO sito/data.js: il file non era
+    # piu' JavaScript valido, la pagina si apriva bianca, e il motivo non si
+    # vedeva ne' nel codice ne' nei dati - solo aprendo il file.
+    scrittori = []
+    for nome in sorted(f for f in os.listdir(RADICE) if f.lower().endswith(".cmd")):
+        with open(os.path.join(RADICE, nome), encoding="utf-8", errors="replace") as f:
+            if "--cartella sito" in senza_rem(f.read()):
+                scrittori.append(nome)
+    check("nessuno script sul PC rigenera \"sito\"", not scrittori,
+          ", ".join(scrittori) or "nessuno, giusto cosi'")
+
+    ciclo = os.path.join(RADICE, ".github", "workflows", "ciclo.yml")
+    with open(ciclo, encoding="utf-8") as f:
+        yml = f.read()
+    check("il ciclo nel cloud la rigenera, cioe' l'autore unico esiste",
+          "--cartella sito" in yml)
+
+    with open(os.path.join(RADICE, ".gitattributes"), encoding="utf-8") as f:
+        attributi = f.read()
+    check("git ha l'ordine di non fondere i file generati",
+          re.search(r"(?m)^sito/\*\*.*-merge", attributi) is not None,
+          "serve 'sito/** -merge' in .gitattributes")
+
+    with open(os.path.join(RADICE, ".gitignore"), encoding="utf-8") as f:
+        ignorati = f.read()
+    check("la cartella del PC resta fuori dal repository",
+          re.search(r"(?m)^da-caricare/?$", ignorati) is not None,
+          "serve 'da-caricare/' in .gitignore")
+
+    dati = os.path.join(RADICE, "sito", "data.js")
+    if os.path.exists(dati):
+        with open(dati, encoding="utf-8", errors="replace") as f:
+            testo = f.read()
+        check("sito/data.js non contiene marcatori di conflitto",
+              "<<<<<<<" not in testo and ">>>>>>>" not in testo,
+              "se falliscono, rigenera il file: non si fonde a mano")
+        try:
+            json.loads(testo[testo.index("{"):testo.rindex("}") + 1])
+            leggibile = True
+        except Exception as e:
+            leggibile = f"{type(e).__name__}: {e}"
+        check("e si legge ancora come JSON", leggibile is True,
+              "" if leggibile is True else str(leggibile)[:80])
 
     print("\n" + ("Tutti i controlli superati." if ok_totale
                   else "ALCUNI CONTROLLI FALLITI."))

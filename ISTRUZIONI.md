@@ -285,20 +285,25 @@ variabile d'ambiente, la legge solo il motore quando gira qui.
 ### B. La cartella da pubblicare
 
 **Doppio clic su `aggiorna-sito.cmd`** e aspetta. Fa tutto da solo e in ordine: il ciclo con le
-analisi di Gemini, la tua dashboard, la cartella `sito\` senza i tuoi dati, e il controllo
-privacy. Alla fine apre la cartella, pronta da trascinare.
+analisi di Gemini, la tua dashboard, la cartella `da-caricare\` senza i tuoi dati, e il
+controllo privacy. Alla fine apre la cartella, pronta da trascinare.
 
 A mano, se preferisci vedere i passaggi:
 
 ```powershell
 python cli.py scan --real --live --llm-limit 2 --llm-pace 5 --llm-budget 8
 python build_web.py --real --live --llm-limit 2 --llm-pace 5 --llm-budget 8
-python build_web.py --real --live --llm-limit 2 --llm-pace 5 --llm-budget 8 --pubblico --cartella sito
+python build_web.py --real --live --llm-limit 2 --llm-pace 5 --llm-budget 8 --pubblico --cartella da-caricare
 python tools\selftest_pubblico.py
 ```
 
 L'ultima riga **deve** dire «Nessuna fuga di dati personali». Se dice altro, non pubblicare.
-`sito\` sono dieci file, circa 1 MB; `web\` resta la tua, con il tuo profilo dentro.
+`da-caricare\` sono dieci file, circa 1 MB; `web\` resta la tua, con il tuo profilo dentro.
+
+**La cartella `sito\` non si genera dal PC.** Quella la rigenera e la pubblica il ciclo nel
+cloud ogni due ore ([AUTOMATICO.md](AUTOMATICO.md)). Se la riscrivi anche da qui, lo stesso
+file generato ha due autori e git ci scrive dentro i propri marcatori di conflitto: il
+`data.js` smette di essere leggibile e la pagina diventa bianca. È già capitato una volta.
 
 **La cache del telefono si invalida da sola.** Il nome della cache dentro `sw.js` pubblicato è
 l'impronta dei file della pagina (DEMO-35): quando cambi la grafica, l'impronta cambia e chi ha
@@ -410,11 +415,12 @@ Tre strade, spiegate per esteso in [COME-FUNZIONA.md](COME-FUNZIONA.md):
 
 1. **gli mandi la cartella `web\`** (1 MB): apre `index.html`, fa il suo questionario, vede la
    sua pagina. Dati fermi al giorno in cui hai generato il file, nessuna notifica;
-2. **metti la cartella online** su GitHub Pages o Cloudflare Pages (gratis) e pubblichi
-   la cartella ogni mattina dal tuo computer con
-   `python build_web.py --real --live --pubblico --cartella sito` (tiene fuori il tuo
-   profilo e le tue posizioni, e non tocca la tua dashboard privata): un solo link per tutti,
-   ognuno con il suo profilo e i dati del giorno. È il punto di equilibrio migliore;
+2. **metti la cartella online** su Cloudflare Pages (gratis) e lasci che si aggiorni da sé
+   ogni due ore, anche a PC spento, con il ciclo nel cloud ([AUTOMATICO.md](AUTOMATICO.md)):
+   un solo link per tutti, con i dati del giorno. È il punto di equilibrio migliore, ed è
+   la strada che questo progetto usa. Se il cloud è fermo e devi caricare a mano, generi con
+   `python build_web.py --real --live --pubblico --cartella da-caricare` (tiene fuori il tuo
+   profilo e le tue posizioni, e non tocca la tua dashboard privata);
 3. **prodotto multiutente** (backend, database, login, canali per utente): è l'architettura
    dell'FDD, ed è il grosso del lavoro che resta.
 

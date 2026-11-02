@@ -98,11 +98,11 @@ riceve un'analisi diversa: ricevono una selezione diversa della stessa analisi.
 Prepari la cartella **senza i tuoi dati** e mandi quella:
 
 ```powershell
-python build_web.py --real --live --llm-limit 2 --llm-pace 5 --pubblico --cartella sito
+python build_web.py --real --live --llm-limit 2 --llm-pace 5 --pubblico --cartella da-caricare
 python tools\selftest_pubblico.py
 ```
 
-Poi copi `sito\` (dieci file, circa 1 MB) su Google Drive, WhatsApp o una chiavetta.
+Poi copi `da-caricare\` (dieci file, circa 1 MB) su Google Drive, WhatsApp o una chiavetta.
 L'amico la apre con doppio clic su `index.html`.
 
 **Non mandare `web\`**: quello è il tuo, e se hai un `profilo.json` contiene il tuo profilo,
@@ -132,11 +132,16 @@ di esempio senza compilare nulla — utile per fargli capire in dieci secondi di
    da quella privata:
 
    ```powershell
-   python build_web.py --real --live                            # la tua dashboard, privata
-   python build_web.py --real --live --pubblico --cartella sito   # quella da mettere online
+   python build_web.py --real --live                                    # la tua dashboard, privata
+   python build_web.py --real --live --pubblico --cartella da-caricare  # quella da mettere online
    ```
 
-   La seconda riga crea `sito\` con i nove file della pagina e un `data.js` da cui sono
+   > **Perché `da-caricare` e non `sito`.** `sito\` esiste nel repository ed è la cartella che
+   > il ciclo nel cloud rigenera e pubblica da sé (livello 3). Un file generato con due autori
+   > finisce con i marcatori di conflitto di git scritti dentro i dati: è successo, e la pagina
+   > è diventata bianca. Quando generi dal PC, scrivi altrove.
+
+   La seconda riga crea `da-caricare\` con i nove file della pagina e un `data.js` da cui sono
    **esclusi il tuo profilo, le tue posizioni, i prezzi di carico, i report che hai chiesto tu e
    le righe del log che ti nominano**: restano solo le analisi, che sono uguali per tutti. La
    cartella `web\` resta quella privata, così pubblicare non ti cancella il profilo dalla

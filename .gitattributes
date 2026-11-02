@@ -20,6 +20,19 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
 
+# La cartella pubblicata: generata, mai da fondere.
+#
+# Un file generato non ha una "fusione" sensata: se due cicli lo riscrivono,
+# la risposta giusta e' rigenerarlo, non mescolare le due versioni. Senza
+# questa riga git ha provato a fondere sito/data.js e ci ha scritto dentro i
+# propri marcatori (<<<<<<< HEAD): il file ha smesso di essere JavaScript
+# valido e la dashboard mostrava la pagina vuota. "-merge" dice a git di non
+# provarci: in caso di divergenza lascia il file intatto e segnala il
+# conflitto, che si chiude rigenerando o scegliendo una delle due versioni
+# (git checkout --theirs sito/data.js). "-diff" evita di sporcare le
+# differenze con migliaia di righe di dati.
+sito/** -merge -diff
+
 # Binari: non toccarli mai.
 *.png binary
 *.ico binary

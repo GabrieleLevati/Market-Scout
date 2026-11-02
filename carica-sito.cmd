@@ -1,10 +1,16 @@
 @echo off
 rem =====================================================================
-rem  Prepara il caricamento su Cloudflare. Doppio clic.
+rem  Caricamento a mano su Cloudflare: LA VIA DI EMERGENZA.
 rem
-rem  Non ricalcola niente: ci pensano i cicli automatici ogni due ore, che
-rem  rigenerano la cartella "sito" da soli. Questo comando serve a sapere
-rem  SE e' il momento di caricare, e ad aprire quello che ti serve.
+rem  NORMALMENTE NON SERVE. Il sito si aggiorna da solo ogni due ore, anche a
+rem  PC spento: il ciclo gira sui computer di GitHub, salva la cartella "sito"
+rem  nel repository e Cloudflare pubblica da quel commit. Vedi AUTOMATICO.md.
+rem
+rem  Questo comando serve nei casi in cui quella catena e' ferma: GitHub in
+rem  avaria, i cicli sospesi per inattivita' del repository, o una modifica da
+rem  provare online subito. Carica la cartella "da-caricare", che il ciclo sul
+rem  PC rigenera: NON la cartella "sito", che ha un solo autore (il cloud) e
+rem  non va toccata da qui.
 rem
 rem  Che cosa fa:
 rem    1. controlla che non ci sia un ciclo in corso (caricare a meta'
@@ -18,8 +24,11 @@ cd /d "%~dp0"
 setlocal
 
 echo.
-echo  AI Market Scout - caricamento su Cloudflare
-echo  ===========================================
+echo  AI Market Scout - caricamento a mano (via di emergenza)
+echo  =======================================================
+echo.
+echo  Di norma non serve: il sito si aggiorna da solo ogni due ore, anche
+echo  a PC spento. Usa questo solo se quella catena e' ferma.
 echo.
 
 rem --- 1. c'e' un ciclo in corso? ------------------------------------------
@@ -39,9 +48,9 @@ if not errorlevel 1 (
 
 rem --- 2. di quando e' la cartella ------------------------------------------
 echo  --- La cartella da caricare -------------------------------------
-powershell -NoProfile -Command "$f = Get-Item 'sito\data.js' -ErrorAction SilentlyContinue; if ($f) { '  dati del ciclo:  ' + $f.LastWriteTime.ToString('dd/MM/yyyy HH:mm') } else { '  MANCA sito\data.js: lancia prima giornaliero.cmd 0' }" 2>nul
-powershell -NoProfile -Command "$n = (Get-ChildItem 'sito' -File -ErrorAction SilentlyContinue).Count; '  file da caricare: ' + $n + ' (devono essere 11)'" 2>nul
-powershell -NoProfile -Command "$d = Get-Content 'sito\data.js' -Raw -ErrorAction SilentlyContinue; if ($d -match '\""data_mode\"":\s*\""([a-z]+)\""') { '  tipo di dati:     ' + $Matches[1] }; if ($d -match '\""mode\"":\s*\""(live[^\""]*)\""') { '  analisi AI:       ' + $Matches[1] }" 2>nul
+powershell -NoProfile -Command "$f = Get-Item 'da-caricare\data.js' -ErrorAction SilentlyContinue; if ($f) { '  dati del ciclo:  ' + $f.LastWriteTime.ToString('dd/MM/yyyy HH:mm') } else { '  MANCA da-caricare\data.js: lancia prima giornaliero.cmd 0' }" 2>nul
+powershell -NoProfile -Command "$n = (Get-ChildItem 'da-caricare' -File -ErrorAction SilentlyContinue).Count; '  file da caricare: ' + $n + ' (devono essere 11)'" 2>nul
+powershell -NoProfile -Command "$d = Get-Content 'da-caricare\data.js' -Raw -ErrorAction SilentlyContinue; if ($d -match '\""data_mode\"":\s*\""([a-z]+)\""') { '  tipo di dati:     ' + $Matches[1] }; if ($d -match '\""mode\"":\s*\""(live[^\""]*)\""') { '  analisi AI:       ' + $Matches[1] }" 2>nul
 echo.
 
 rem --- 3. il controllo privacy, sempre -------------------------------------
@@ -61,7 +70,7 @@ echo.
 echo   Se hai cambiato la grafica, dopo il deploy DISINSTALLA e REINSTALLA
 echo   l'app: l'indirizzo di partenza lo legge quando la installi.
 echo.
-start "" "%~dp0sito"
+start "" "%~dp0da-caricare"
 start "" "https://dash.cloudflare.com"
 goto fine
 
