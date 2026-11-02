@@ -124,18 +124,41 @@ jobs:
         run: python tools/selftest_pubblico.py
 
       - name: Pubblica
+        # NIENTE FUSIONE, MAI. "sito" e' generata: se diverge dalla versione
+        # nel repository la risposta giusta non e' mescolare le due, e' tenere
+        # questa, che e' la piu' recente. La versione precedente faceva
+        # "git pull --rebase || true": quel "|| true" nascondeva il conflitto
+        # e spingeva comunque, e cosi' in sito/data.js sono finiti i marcatori
+        # di conflitto di git. Il file ha smesso di essere JavaScript valido e
+        # la pagina si apriva bianca.
+        #
+        # Quindi: si porta HEAD e l'indice sulla punta remota (--mixed lascia
+        # i file generati dove sono, e non rimette indietro le modifiche al
+        # codice arrivate nel frattempo), si mette "sito" sopra e si spinge.
+        # Un solo commit, in avanti, senza fusioni possibili.
         run: |
           git config user.name "Market Scout"
           git config user.email "noreply@users.noreply.github.com"
-          git add -A sito
-          if git diff --cached --quiet; then
-            echo "Nessuna modifica: niente da pubblicare."
-            exit 0
-          fi
-          git commit -m "ciclo $(date -u '+%Y-%m-%d %H:%M UTC') - ${{ steps.modo.outputs.etichetta }}"
-          # rebase prima del push: due cicli ravvicinati non devono litigare
-          git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          for tentativo in 1 2 3; do
+            git fetch --quiet origin "${GITHUB_REF_NAME}"
+            git reset --mixed --quiet "origin/${GITHUB_REF_NAME}"
+            git add -A sito
+            if git diff --cached --quiet; then
+              echo "Nessuna modifica: niente da pubblicare."
+              exit 0
+            fi
+            git commit --quiet -m "ciclo $(date -u '+%Y-%m-%d %H:%M UTC') - ${{ steps.modo.outputs.etichetta }}"
+            if git push --quiet origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo "Pubblicato al tentativo $tentativo."
+              exit 0
+            fi
+            # Qualcuno ha spinto negli ultimi secondi: si rifa' sopra la nuova
+            # punta. Non e' un errore, e' una corsa; dopo tre tentativi si',
+            # perche' allora il problema e' un altro e va visto.
+            echo "Punta remota cambiata durante il push, rifaccio ($tentativo/3)."
+          done
+          echo "Non riesco a pubblicare dopo tre tentativi."
+          exit 1
 
       - name: Riepilogo leggibile
         if: always()
