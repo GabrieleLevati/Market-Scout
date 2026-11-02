@@ -410,26 +410,59 @@ function tipSpark(host, svg, { values, dates, X, Y, W, H, color }) {
    centro dice quanto. Il colore viene dalla fascia di classificazione, e non
    viaggia da solo - accanto c'e' sempre il semaforo con la parola scritta.
    --------------------------------------------------------------------------- */
+let CONTA_RING = 0;
+
 function ring(host, { score, color = null, label = 'su 100' } = {}) {
   host.innerHTML = '';
   const c = color || css('--series-1');
   const R = 32, CIRC = 2 * Math.PI * R;
   const svg = el('svg', { viewBox: '0 0 74 74' }, host);
   el('circle', { class: 'track', cx: 37, cy: 37, r: R }, svg);
-  const val = el('circle', { class: 'val', cx: 37, cy: 37, r: R, stroke: c,
+
+  /* L'arco va dal colore pieno a una versione piu' chiara dello STESSO
+     colore, non a un colore diverso: un gradiente fra due tinte direbbe che
+     l'inizio e la fine dell'arco significano cose diverse, e non e' vero -
+     e' un numero solo. Qui il gradiente da' profondita' e basta. */
+  CONTA_RING += 1;
+  const id = 'gri' + CONTA_RING;      // id unico: due anelli lo condividerebbero
+  const defs = el('defs', {}, svg);
+  const lg = el('linearGradient', { id: id, x1: '0', y1: '0', x2: '1', y2: '1' }, defs);
+  el('stop', { offset: '0', 'stop-color': c, 'stop-opacity': '1' }, lg);
+  el('stop', { offset: '1', 'stop-color': c, 'stop-opacity': '.55' }, lg);
+
+  const val = el('circle', { class: 'val', cx: 37, cy: 37, r: R, stroke: `url(#${id})`,
                              'stroke-dasharray': CIRC.toFixed(1),
                              'stroke-dashoffset': CIRC.toFixed(1) }, svg);
   const num = document.createElement('div');
   num.className = 'num';
-  num.innerHTML = `<span>${score}<small>${label}</small></span>`;
+  const voto = Math.max(0, Math.min(100, Math.round(score || 0)));
+  num.innerHTML = `<span><b>${voto}</b><small>${label}</small></span>`;
   host.appendChild(num);
-  // si riempie subito dopo il disegno, cosi' l'animazione parte da zero
-  const arrivo = CIRC * (1 - Math.max(0, Math.min(100, score)) / 100);
-  if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(() => val.setAttribute('stroke-dashoffset', arrivo.toFixed(1)));
-  } else {
-    val.setAttribute('stroke-dashoffset', arrivo.toFixed(1));
-  }
+
+  const arrivo = CIRC * (1 - voto / 100);
+  const fine = () => val.setAttribute('stroke-dashoffset', arrivo.toFixed(1));
+  if (typeof requestAnimationFrame !== 'function') { fine(); return; }
+  requestAnimationFrame(fine);
+
+  /* Il numero sale insieme all'arco. Senza, l'arco cresce e il numero e' gia'
+     arrivato: le due cose dicono lo stesso dato e muoversi in modo diverso le
+     fa sembrare due dati. Chi ha chiesto meno animazioni non vede nessuna
+     salita, e il numero e' quello giusto dal primo fotogramma. */
+  const fermo = typeof matchMedia === 'function'
+    && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cifra = num.querySelector('b');
+  if (fermo || !cifra || voto === 0) return;
+  const DURATA = 620;
+  let t0 = null;
+  const passo = (t) => {
+    if (t0 === null) t0 = t;
+    const q = Math.min(1, (t - t0) / DURATA);
+    // stessa curva del riempimento dell'arco: partono e arrivano insieme
+    cifra.textContent = String(Math.round(voto * (1 - Math.pow(1 - q, 3))));
+    if (q < 1) requestAnimationFrame(passo);
+    else cifra.textContent = String(voto);
+  };
+  requestAnimationFrame(passo);
 }
 
 const colors = () => ({

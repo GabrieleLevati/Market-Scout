@@ -556,6 +556,101 @@ body[data-mode="simple"] .light.verde {
 .fr-euro.sv { background: color-mix(in srgb, var(--text-2) 7%, transparent);
   border-color: color-mix(in srgb, var(--text-2) 22%, transparent); }
 
+/* ======================================================================
+   COLORE PER TIPO DI PRODOTTO
+   ======================================================================
+   Sei tinte, una per classe, in ordine FISSO e mai riciclato: se un giorno
+   comparisse un settimo tipo non riceve una tinta inventata, prende il
+   neutro (.tp0). Un colore assegnato a rotazione cambierebbe significato da
+   un ciclo all'altro, che e' peggio di nessun colore.
+
+   NON SONO SCELTE A OCCHIO. Entrambe le serie passano il validatore di
+   palette: banda di luminosita', soglia di croma, separazione per le tre
+   forme di daltonismo e contrasto sul fondo. La prima versione che avevo
+   scritto a mano falliva tre controlli su cinque - due tinte indistinguibili
+   anche a vista normale e una che leggeva grigia.
+
+   Il tema scuro ha passi PROPRI, non gli stessi schiariti: la banda di
+   luminosita' utile su fondo scuro e' piu' bassa (L 0,48-0,67 invece di
+   0,43-0,77), e arancio, oro e rosa della serie chiara sono troppo chiari
+   per starci dentro.
+
+   Il colore non porta mai l'informazione da solo: accanto c'e' sempre il
+   nome del tipo scritto. E' anche la condizione che rende accettabile
+   l'avviso del validatore sul contrasto di tre tinte sotto 3:1.
+*/
+:root {
+  --tp1: #2a78d6;   /* Azioni       */
+  --tp2: #eb6834;   /* ETF          */
+  --tp3: #1baf7a;   /* Obbligazioni */
+  --tp4: #eda100;   /* Crypto       */
+  --tp5: #e87ba4;   /* Commodities  */
+  --tp6: #008300;   /* REIT         */
+}
+[data-theme="dark"] {
+  --tp1: #3d85e0;
+  --tp2: #d9622f;
+  --tp3: #1aa875;
+  --tp4: #b88100;
+  --tp5: #cc628f;
+  --tp6: #1aa02a;
+}
+
+/* Il bordino in cima alla card: raggruppa a vista senza aggiungere parole.
+   Sta sopra e non intorno perche' un contorno colorato su una card bianca
+   grida, una riga di 3px si nota e non disturba la lettura. */
+.flip .faccia { position: relative; }
+.flip .faccia::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  border-radius: var(--r) var(--r) 0 0;
+  background: var(--tinta, transparent);
+}
+.tp1 { --tinta: var(--tp1); } .tp2 { --tinta: var(--tp2); }
+.tp3 { --tinta: var(--tp3); } .tp4 { --tinta: var(--tp4); }
+.tp5 { --tinta: var(--tp5); } .tp6 { --tinta: var(--tp6); }
+.tp0 { --tinta: var(--axis); }
+
+/* Il pallino nei pulsanti del filtro: lo stesso codice colore della card, in
+   modo che il filtro e la lista parlino la stessa lingua. */
+.chip .pt { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--tinta, var(--axis)); }
+.chip.on .pt { background: #fff; }
+
+/* ======================================================================
+   LA BANDA DEI NUMERI, in cima alla pagina
+   ======================================================================
+   Tre numeri invece di una frase: quanti ne ho trovati, quanti restano da
+   approfondire, qual e' il voto piu' alto di oggi. I numeri sono in colore
+   di testo e non nelle tinte delle serie - il colore qui non significa
+   niente, e usarlo lo renderebbe rumore. */
+.banda { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin: 14px 0 2px; }
+.bt { padding: 12px 13px; border-radius: var(--r-sm); background: var(--surface-1);
+  border: 1px solid var(--border); box-shadow: var(--lift); }
+.bt .n { font-size: 25px; font-weight: 820; letter-spacing: -.03em; color: var(--text-1);
+  line-height: 1.05; font-variant-numeric: tabular-nums; }
+.bt .k { display: block; margin-top: 3px; font-size: 11px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.bt.vuota .n { color: var(--muted); }
+@media (max-width: 380px) {
+  .bt { padding: 10px; }
+  .bt .n { font-size: 21px; }
+  .bt .k { font-size: 10px; letter-spacing: .04em; }
+}
+
+/* La card risponde al tocco. Su un telefono e' il solo modo di sapere che
+   il dito e' stato registrato prima che la pagina cambi. */
+.flip .faccia .cbar button:active { transform: scale(.97); }
+.flip:active { transform: scale(.994); }
+@media (prefers-reduced-motion: reduce) { .flip:active { transform: none; } }
+
+/* Il voto alto si vede da lontano: un alone intorno all'anello, solo sopra
+   85, e solo come rinforzo di un numero che e' gia' scritto dentro. */
+.ring.alto::after { content: ''; position: absolute; inset: -6px; border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--good) 26%, transparent) 0%, transparent 70%);
+  z-index: -1; }
+
 /* LA NAVIGAZIONE fra le tre pagine. Testo e non icone: "Da approfondire" si
    capisce, un simbolo per la stessa cosa no. Il numero accanto serve a sapere
    se vale la pena andarci prima di andarci. */
@@ -566,14 +661,14 @@ body[data-mode="simple"] .light.verde {
   font: inherit; font-size: 14px; font-weight: 700; letter-spacing: -0.1px;
   color: var(--muted); background: transparent; border: 0; cursor: pointer;
   padding: 8px 13px; border-radius: 999px; transition: background .16s, color .16s; }
-.nv:hover { color: var(--text); background: color-mix(in srgb, var(--text-2) 8%, transparent); }
+.nv:hover { color: var(--text-1); background: color-mix(in srgb, var(--text-2) 8%, transparent); }
 .nv b { font-size: 11.5px; font-weight: 800; padding: 1px 6px; border-radius: 999px;
   background: color-mix(in srgb, var(--text-2) 14%, transparent); color: var(--text-2); }
 /* La pagina attiva: non solo un colore. Chi non distingue bene i colori deve
    vederlo comunque, quindi cambia anche il fondo e il peso del contorno. */
-.nv.on { color: var(--text); background: var(--card);
-  box-shadow: inset 0 0 0 1px var(--border), var(--sh-1); }
-.nv.on b { background: color-mix(in srgb, var(--s1) 20%, transparent); color: var(--s1); }
+.nv.on { color: var(--text-1); background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border), var(--lift); }
+.nv.on b { background: color-mix(in srgb, var(--series-1) 20%, transparent); color: var(--series-1); }
 
 /* IL MENU DEI TIPI. Scorre in orizzontale invece di andare a capo: una fila
    sola dice "questi sono i filtri", due file sembrano contenuto. */
@@ -582,28 +677,28 @@ body[data-mode="simple"] .light.verde {
 .chipsrow::-webkit-scrollbar { display: none; }
 .chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
   font: inherit; font-size: 13px; font-weight: 650; color: var(--text-2);
-  background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px;
   padding: 7px 12px; cursor: pointer; transition: background .16s, color .16s,
   border-color .16s; }
-.chip:hover { border-color: color-mix(in srgb, var(--s1) 45%, var(--border)); }
+.chip:hover { border-color: color-mix(in srgb, var(--series-1) 45%, var(--border)); }
 .chip b { font-size: 11px; font-weight: 800; color: var(--muted); }
 /* Selezionato: fondo pieno E contorno, mai il solo colore. */
-.chip.on { color: #fff; background: var(--s1); border-color: var(--s1); }
+.chip.on { color: #fff; background: var(--series-1); border-color: var(--series-1); }
 .chip.on b { color: color-mix(in srgb, #fff 75%, transparent); }
 
 /* IL RIMANDO all'altra pagina. E' un bottone e si vede che lo e': una riga di
    testo con una freccia si legge come una didascalia e nessuno la tocca. */
 .rimando { display: flex; align-items: center; gap: 12px; width: calc(100% - 40px);
   margin: 18px 20px 4px; padding: 14px 16px; text-align: left; font: inherit;
-  font-size: 14px; color: var(--text-2); background: var(--card); cursor: pointer;
-  border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--sh-1);
+  font-size: 14px; color: var(--text-2); background: var(--surface-1); cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--lift);
   transition: border-color .16s, transform .12s; }
-.rimando:hover { border-color: color-mix(in srgb, var(--s1) 50%, var(--border)); }
+.rimando:hover { border-color: color-mix(in srgb, var(--series-1) 50%, var(--border)); }
 .rimando:active { transform: scale(0.995); }
 .rimando span { flex: 1; line-height: 1.45; }
-.rimando b { color: var(--text); font-weight: 800; }
+.rimando b { color: var(--text-1); font-weight: 800; }
 .rimando i { flex: 0 0 auto; font-style: normal; font-size: 13.5px; font-weight: 750;
-  color: var(--s1); white-space: nowrap; }
+  color: var(--series-1); white-space: nowrap; }
 
 /* La riga di spiegazione sotto il titolo della pagina "Da approfondire". */
 .hero .sub { margin: 10px 0 0; font-size: 14px; line-height: 1.55; color: var(--muted);
@@ -621,7 +716,7 @@ body[data-mode="simple"] .light.verde {
    continuazione della prima. */
 .sezione { margin: 26px 20px 2px; }
 .sezione h2 { margin: 0 0 6px; font-size: 17px; font-weight: 800;
-  letter-spacing: -0.2px; color: var(--text); }
+  letter-spacing: -0.2px; color: var(--text-1); }
 .sezione p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--muted);
   max-width: 54ch; }
 @media (max-width: 620px) {
