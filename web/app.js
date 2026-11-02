@@ -439,7 +439,7 @@ function chipsTipi(lista) {
     <button class="chip${attivi ? '' : ' on'}" data-act="tipo" data-t="">Tutti</button>
     ${tipi.map(t => `<button class="chip${scelti.indexOf(t) > -1 ? ' on' : ''}"
       data-act="tipo" data-t="${esc(t)}"
-      aria-pressed="${scelti.indexOf(t) > -1}">${esc(t)}<b>${conta[t]}</b></button>`).join('')}
+      aria-pressed="${scelti.indexOf(t) > -1}"><span class="pt ${tinta(t)}"></span>${esc(t)}<b>${conta[t]}</b></button>`).join('')}
   </div>`;
 }
 
@@ -476,6 +476,35 @@ const TAGLIA = {
   plurale:   { 'Mega cap': 'grandissime', 'Large cap': 'grandi',
                'Mid cap': 'medie', 'Small cap': 'piccole' },
 };
+
+/* Il posto FISSO di ogni tipo nella scala dei colori. Un dizionario e non un
+   indice calcolato: con l'indice, il colore di un tipo cambierebbe a seconda
+   di quali altri tipi sono presenti quel giorno, e un colore che cambia
+   significato non e' un codice, e' una decorazione. Un tipo sconosciuto
+   prende il neutro invece di una tinta inventata. */
+const TINTE = { 'Azioni': 1, 'ETF': 2, 'Obbligazioni': 3, 'Crypto': 4,
+                'Commodities': 5, 'REIT': 6 };
+const tinta = (classe) => 'tp' + (TINTE[classe] || 0);
+
+/* La banda dei tre numeri in cima. Non e' decorazione: dice in un colpo
+   d'occhio quanto c'e' e quanto vale il meglio di oggi, che e' la prima cosa
+   che uno cerca aprendo l'app. */
+function bandaNumeri() {
+  const o = D.opportunita || {};
+  const lista = o.lista || [];
+  const oss = o.osservati || [];
+  const miglior = lista.concat(oss).reduce((m, x) => Math.max(m, x.score || 0), 0);
+  const celle = [
+    [lista.length, lista.length === 1 ? 'opportunità' : 'opportunità'],
+    [oss.length, 'da approfondire'],
+    [miglior || '–', 'voto più alto'],
+  ];
+  return `<div class="banda" style="--i:<#i>">
+    ${celle.map(([n, k]) => `<div class="bt${n ? '' : ' vuota'}">
+      <div class="n">${esc(String(n))}</div><span class="k">${esc(k)}</span>
+    </div>`).join('')}
+  </div>`;
+}
 
 /* L'etichetta in cima alla card.
    Il motore classifica per fascia di punteggio, e per un 94 scrive
@@ -529,7 +558,7 @@ function opportunityCard(o, idx) {
   // la riga non esiste. Quello che non si mostra mai e' un ISIN indovinato.
   const isin = id.isin ? `<span class="mono">${esc(id.isin)}</span>` : null;
   return `
-  <div class="flip${girata ? ' girata' : ''}" id="opp-${idx}" style="--i:<#i>">
+  <div class="flip ${tinta(o.asset_class)}${girata ? ' girata' : ''}" id="opp-${idx}" style="--i:<#i>">
     <div class="flip-inner">
 
       <div class="faccia avanti">
@@ -548,7 +577,7 @@ function opportunityCard(o, idx) {
             <button class="stella${seguita ? ' on' : ''}" data-act="segui" data-i="${idx}"
               title="${seguita ? 'Smetti di seguirla' : 'Segui questo strumento'}"
               aria-pressed="${seguita}">${seguita ? '★' : '☆'}</button>
-            <div class="ring" id="ring-${idx}" title="Voto ${o.score} su 100"></div>
+            <div class="ring${o.score >= 85 ? ' alto' : ''}" id="ring-${idx}" title="Voto ${o.score} su 100"></div>
           </div>
         </div>
         ${o.che_cos_e ? `<p class="fr-cos">${esc(o.che_cos_e)}</p>` : ''}
@@ -736,6 +765,7 @@ function viewSimple() {
         valgono, quindi <b>non le do un prezzo obiettivo</b>. Non sono proposte
         d’acquisto e non le segnalo con una notifica.</p>
     </div>`);
+    push(bandaNumeri());
     push(chipsTipi(osservati));
     opp.forEach((o, k) => push(opportunityCard(o, k)));
   } else {
@@ -745,6 +775,7 @@ function viewSimple() {
       <h1>${tutte.length === 0 ? 'Nessuna opportunità, in questo momento.'
         : tutte.length === 1 ? 'Una opportunità.' : tutte.length + ' opportunità.'}</h1>
     </div>`);
+    push(bandaNumeri());
     push(chipsTipi(tutte));
     opp.forEach((o, k) => push(opportunityCard(o, k)));
 

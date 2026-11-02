@@ -290,7 +290,11 @@ function main() {
     win.AMS.render();
   } catch (e) { errore = e; }
   check('girare non da errore', !errore, errore && errore.message);
-  check('lo stato resta dopo un nuovo disegno', vista(win).indexOf('flip girata') > -1);
+  // la classe si cerca nell'elenco, non come stringa attaccata: fra "flip" e
+  // "girata" ora c'e' anche la tinta del tipo, e un controllo che pretende
+  // le due parole adiacenti falliva per una classe in piu'.
+  check('lo stato resta dopo un nuovo disegno',
+        /class="flip [^"]*girata/.test(vista(win)));
 
   console.log('\n3d. Le novita: quello che prima non c era, e quello che e uscito');
   win = avvia('', null, (d) => {
@@ -599,6 +603,41 @@ function main() {
   win.AMS.rientro();
   check('e mai mentre l app e in background',
         win.location._ricariche === 0, String(win.location._ricariche));
+
+  console.log('\n10b. Il colore del tipo e la banda dei numeri');
+  /* Il colore del tipo e un CODICE, non una decorazione: il posto di ogni
+     tipo nella scala e fisso e non dipende da quali altri tipi ci sono quel
+     giorno. Un colore che cambia significato da un ciclo all altro sarebbe
+     peggio di nessun colore. E un tipo sconosciuto prende il neutro, non una
+     tinta inventata. */
+  win = avvia('', null, (d) => {
+    fissaOpportunita(d);
+    const base = d.opportunita.lista[0];
+    const copia = (tk, classe, voto) => Object.assign({}, base,
+      { ticker: tk, asset_class: classe, score: voto });
+    d.opportunita.lista = [copia('AAA', 'Azioni', 90), copia('BBB', 'ETF', 72),
+                           copia('CCC', 'Sconosciuto', 71)];
+    d.opportunita.osservati = [];
+  });
+  html = vista(win);
+  check('le azioni prendono il primo posto della scala',
+        /class="flip tp1/.test(html));
+  check('gli ETF il secondo, sempre lo stesso', /class="flip tp2/.test(html));
+  check('un tipo sconosciuto prende il neutro, non una tinta inventata',
+        /class="flip tp0/.test(html));
+  check('il colore non e mai l unica informazione: il tipo e scritto',
+        html.indexOf('ETF') > -1 && html.indexOf('Azioni') > -1);
+
+  check('c e la banda dei numeri in cima', html.indexOf('class="banda"') > -1);
+  const numeri = (html.match(/<div class="n">([^<]*)</g) || [])
+    .map(s => s.replace(/.*>/, '').replace(/<$/, ''));
+  check('dice quante opportunita', numeri[0] === '3', String(numeri[0]));
+  check('quanti da approfondire', numeri[1] === '0', String(numeri[1]));
+  check('e il voto piu alto di oggi', numeri[2] === '90', String(numeri[2]));
+  check('la cella a zero si distingue', html.indexOf('class="bt vuota"') > -1);
+  check('l alone sul voto alto compare solo sopra 85',
+        (html.match(/class="ring alto"/g) || []).length === 1,
+        String((html.match(/class="ring alto"/g) || []).length));
 
   console.log('\n11. Il menu dei tipi: scegliere cosa vedere, non cosa esiste');
   /* E un filtro di VISUALIZZAZIONE: la lista che il motore produce resta

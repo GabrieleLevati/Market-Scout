@@ -136,6 +136,29 @@ def main() -> int:
           "location.protocol.indexOf('http')" in html,
           "aperta da disco la pagina deve funzionare comunque")
 
+    print("\n6a. Ogni colore usato nel foglio di stile deve esistere")
+    # PERCHE'. Una variabile CSS inesistente non da' errore: il browser
+    # scarta la dichiarazione e tira avanti. Ho scritto var(--card),
+    # var(--sh-1) e var(--text) a memoria - i token veri sono --surface-1,
+    # --lift e --text-1 - e dodici dichiarazioni sono state ignorate in
+    # silenzio: pulsanti attivi senza fondo, riquadri senza superficie. Si
+    # vedeva solo guardando una schermata, e solo sapendo cosa cercare.
+    css = "\n".join(leggi(n) for n in ("styles.css", "stili-cliente.css"))
+    # Queste non si dichiarano nel foglio: le mette il programma sull'elemento
+    # (--i l'ordine di comparsa, --len la lunghezza del tracciato da animare,
+    # --tinta il colore del tipo, che arriva da una classe).
+    A_RUNTIME = {"i", "len", "tinta"}
+    definite = set(re.findall(r"--([a-z0-9-]+)\s*:", css)) | A_RUNTIME
+    usate = set(re.findall(r"var\(\s*--([a-z0-9-]+)", css))
+    mancanti = sorted(usate - definite)
+    check("nessuna variabile usata senza essere definita", not mancanti,
+          ", ".join(mancanti) if mancanti else f"{len(usate)} variabili, tutte definite")
+    # e il contrario: una tinta per tipo dichiarata e mai usata sarebbe un
+    # colore che non arriva in pagina
+    for n in range(1, 7):
+        check(f"la tinta del tipo {n} e' dichiarata e usata",
+              f"--tp{n}:" in css and f"var(--tp{n})" in css)
+
     print("\n6b. I dati nuovi devono arrivare sul telefono")
     # "Prima la rete" non basta. Un fetch normale puo' essere soddisfatto
     # dalla cache HTTP del browser senza toccare la rete, se la risposta
