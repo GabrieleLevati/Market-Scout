@@ -1,0 +1,32 @@
+# Intestazioni HTTP della pagina pubblicata. Le legge Cloudflare Pages da
+# questo file, che non viene servito ai visitatori.
+#
+# PERCHE' SERVE. Senza questo file la scadenza dei file la decide l'hosting, e
+# per i file .js tende a essere generosa - ha senso per il codice, che non
+# cambia quasi mai, e non ha senso per i dati, che cambiano ogni due ore. Il
+# risultato sarebbe un telefono che apre l'app, non chiede niente a nessuno
+# perche' crede di avere il dato buono, e mostra i prezzi di stamattina. Il
+# difetto peggiore di questo tipo: niente da vedere nei log, nessun errore,
+# solo numeri vecchi con l'aria di essere nuovi.
+
+# I dati del ciclo: mai tenuti senza chiedere.
+# "no-cache" non vuol dire "non conservare": vuol dire "prima di riusarlo
+# chiedi al server se e' cambiato". Se non e' cambiato la risposta e' un 304
+# da pochi byte, quindi la freschezza non costa banda.
+/data.js
+  Cache-Control: no-cache
+
+# Il service worker decide quale versione dell'app gira: se restasse in cache,
+# un aggiornamento della pagina potrebbe non arrivare mai. I browser lo
+# trattano già con prudenza, ma qui lo mettiamo per iscritto.
+/sw.js
+  Cache-Control: no-cache
+
+# Il manifest dichiara nome, icone e indirizzo di partenza dell'app
+# installata: cambia raramente, ma quando cambia deve arrivare.
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# Il guscio dell'app (html, css, js, icone) resta libero di essere conservato
+# dall'hosting: ci pensa il service worker a sostituirlo quando cambia, perche'
+# build_web.py gli timbra un nome di cache nuovo a ogni pubblicazione.

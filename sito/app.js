@@ -11,6 +11,24 @@ const $ = (sel, root = document) => root.querySelector(sel);
 // punteggio assente = dato non disponibile, non zero
 const nd = (v) => (v === null || v === undefined) ? '<span class="note">n.d.</span>' : v;
 
+// L'etichetta di freschezza in testa alla pagina.
+//
+// Mostra l'ora dell'ultimo scambio dichiarata dalla borsa, non l'ora in cui e'
+// girato il ciclo. La differenza conta: il ciclo gira dodici volte al giorno,
+// anche di notte, e se scrivesse la propria ora direbbe "aggiornato alle 3:05"
+// sopra dei prezzi fermi alla chiusura di New York. Un orario che si muove
+// sopra dei numeri che non si muovono e' peggio di nessun orario, perche'
+// invita a rileggere la pagina per vedere cosa e' cambiato quando non puo'
+// essere cambiato niente.
+function quandoTesto() {
+  if (D.meta.data_mode !== 'real') return 'dimostrazione · dati simulati';
+  const al = (D.data || {}).prezzi_al;
+  const ora = al ? F.ora(al) : '';
+  if (!ora) return 'controllato il ' + F.date(D.meta.today);
+  if (!F.oggi(al)) return 'prezzi di chiusura del ' + F.date(al.slice(0, 10));
+  return ((D.data || {}).seduta_in_corso ? 'prezzi delle ' : 'chiusura delle ') + ora;
+}
+
 const VIEWS = [
   { id: 'home', label: 'Home', group: 'Dashboard (BR-10)' },
   { id: 'opportunities', label: 'Opportunity Center' },
@@ -492,8 +510,7 @@ function vistaSeguiti() {
     : stati.length === 1 ? 'Segue un prodotto.' : 'Segue ' + stati.length + ' prodotti.';
   push(`<div class="hero" style="--i:<#i>">
     <span class="quando${D.meta.data_mode === 'real' ? '' : ' finta'}"><i></i>${
-      D.meta.data_mode === 'real'
-        ? 'controllato il ' + F.date(D.meta.today) : 'dimostrazione · dati simulati'}</span>
+      esc(quandoTesto())}</span>
     <h1>${esc(titolo)}</h1>
   </div>`);
 
@@ -560,8 +577,7 @@ function viewSimple() {
 
   push(`<div class="hero" style="--i:<#i>">
     <span class="quando${D.meta.data_mode === 'real' ? '' : ' finta'}"><i></i>${
-      D.meta.data_mode === 'real'
-        ? 'controllato il ' + F.date(D.meta.today) : 'dimostrazione · dati simulati'}</span>
+      esc(quandoTesto())}</span>
     <h1>${esc(titolo)}</h1>
   </div>`);
 
@@ -608,6 +624,11 @@ function viewSimple() {
   const reale = D.meta.data_mode === 'real';
   const fonti = [
     ['Prezzi e andamento', reale ? (d.source || 'Yahoo Finance') : 'generatore della demo', true],
+    ['Ultimo scambio sul mercato',
+     reale ? (d.prezzi_al ? F.date(d.prezzi_al.slice(0, 10)) + ' alle ' + F.ora(d.prezzi_al)
+                          : 'non dichiarato')
+           : 'simulato',
+     reale ? !!d.prezzi_al : true],
     ['Bilanci societari', reale ? (d.with_fundamentals || 0) + ' strumenti' : 'simulati',
      reale ? !!d.with_fundamentals : true],
     ['Notizie, ultime due settimane', reale ? (d.with_news || 0) + ' strumenti' : 'simulate',
@@ -1072,7 +1093,36 @@ document.addEventListener('DOMContentLoaded', boot);
 
 // Piccola finestra sullo stato della pagina: serve per capire cosa sta facendo
 // dalla console del browser, e al controllo automatico tools/selftest_vista.js.
+/* QUANDO SI RIAPRE L'APP.
+   Un'applicazione installata non riparte da zero: il telefono la tiene in
+   memoria, e riaprendola si rivede la pagina di prima - con i prezzi di
+   prima. Il ciclo pubblica ogni due ore, ma senza questo pezzo l'unico modo
+   di vedere i dati nuovi sarebbe chiudere e riaprire l'app a mano, cosa che
+   nessuno fa. Al rientro, se la pagina e' ferma da un po', si ricarica: il
+   guscio e' in cache, quindi costa una richiesta sola, condizionale.
+
+   MA NON SOTTO LE DITA. Se c'e' una card girata o il foglio "come lavoro"
+   alzato, chi guarda sta leggendo qualcosa e una ricarica gli farebbe
+   perdere il punto. Lo stesso se e' sulla pagina dei prodotti seguiti. In
+   quei casi non si fa niente e nessuno viene ingannato, perche' l'etichetta
+   in alto dice sempre di quando sono i prezzi: si aggiorna al rientro dopo. */
+// In un oggetto e non in una costante perche' il controllo automatico deve
+// poter invecchiare la pagina senza spostare l'orologio del processo.
+const tempo = { caricata: Date.now(), vecchiaDopoMs: 10 * 60 * 1000 };
+
+function rientro() {
+  if (document.visibilityState !== 'visible') return;
+  if (Date.now() - tempo.caricata < tempo.vecchiaDopoMs) return;
+  if (state.aperte && state.aperte.length) return;
+  if (state.conf) return;
+  if (state.pagina && state.pagina !== 'opportunita') return;
+  location.reload();
+}
+
+document.addEventListener('visibilitychange', rientro);
+
 window.AMS = { state: state, render: render, seguiAlterna: seguiAlterna,
                seguitiLeggi: seguitiLeggi, statoSeguito: statoSeguito,
+               quandoTesto: quandoTesto, rientro: rientro, tempo: tempo,
                user: user, demoUser: demoUser, localUser: localUser };
 })();
