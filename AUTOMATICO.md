@@ -226,10 +226,15 @@ Deve essere *Secret* e non *Text*: un Text si rilegge dal pannello.
 Trigger**, e metti:
 
 ```
-23 */2 * * *
+23 1,3,5,7,9,11,13,15,17,19,21,23 * * *
 ```
 
-Ogni due ore ai minuti :23, in UTC. Non serve distinguere i cicli con AI da
+Ogni due ore ai minuti :23, in UTC. **Le ore scritte una per una, non
+`*/2`**: quel passo copre le ore pari (0, 2, 4…) mentre i due cicli con AI
+girano alle 09 e alle 21, che sono dispari — con `*/2` l'AI non partirebbe
+mai, e il sintomo sarebbe «il modello non risponde», cercato nel posto
+sbagliato. L'espressione è identica al cron del workflow, e un controllo
+automatico verifica che le due non divergano. Non serve distinguere i cicli con AI da
 quelli senza: **quella scelta sta solo nel workflow**, che guarda l'ora.
 Metterla anche qui rimetterebbe l'orario in due posti, ed è l'errore che
 questo progetto ha già fatto una volta.

@@ -29,6 +29,21 @@
 const PROPRIETARIO = 'GabrieleLevati';
 const REPOSITORY = 'Market-Scout';
 
+/* L'ORARIO DA METTERE NEL CRON TRIGGER del pannello Cloudflare.
+ *
+ * Sta scritto qui, anche se Cloudflare non lo legge da questo file, perche'
+ * cosi' un controllo automatico puo' verificare che sia IDENTICO al cron del
+ * workflow (tools/selftest_pwa.py). Serve: la prima versione di queste
+ * istruzioni diceva "23 * / 2 * * *" (senza spazi), che in cron vuol dire ore
+ * PARI - 0, 2, 4... - mentre i due cicli con AI girano alle 09 e alle 21, che
+ * sono dispari. Con quell'espressione l'AI non sarebbe partita mai, e il
+ * sintomo sarebbe stato "il modello non risponde", cercato per giorni nel
+ * posto sbagliato.
+ *
+ * Le ore sono scritte una per una di proposito: un passo /2 e' piu' corto ma
+ * nasconde quali ore copre, ed e' esattamente l'informazione che conta. */
+export const CRON_CONSIGLIATO = '23 1,3,5,7,9,11,13,15,17,19,21,23 * * *';
+
 /* GitHub RIFIUTA le richieste senza User-Agent: risponde 403 e il motivo non
  * si capisce dal messaggio. In questo progetto e' gia' costato un ciclo
  * intero di diagnosi sbagliata con Groq, che sta dietro lo stesso tipo di

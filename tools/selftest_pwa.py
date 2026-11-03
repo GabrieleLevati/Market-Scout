@@ -305,6 +305,24 @@ def main() -> int:
               "con_ai" not in js,
               "deciderlo anche qui rimetterebbe l'orario in due posti")
 
+        # L'ORARIO DELLO SCHEDULER ESTERNO DEVE COPRIRE LE ORE DELL'AI.
+        # La prima versione delle istruzioni diceva "23 */2 * * *", che in
+        # cron sono le ore PARI: i due cicli con AI girano alle 09 e alle 21,
+        # dispari, quindi non sarebbero partiti mai. Il sintomo sarebbe stato
+        # "il modello non risponde", cercato nel posto sbagliato. Qui si
+        # verifica che l'orario consigliato sia identico a quello del
+        # workflow, cosi' i due non possono divergere.
+        consigliato = re.search(r"CRON_CONSIGLIATO\s*=\s*'([^']+)'", js)
+        check("lo scheduler dichiara l'orario da mettere nel pannello",
+              consigliato is not None)
+        if consigliato and dichiarati:
+            check("ed e' identico al cron del workflow",
+                  consigliato.group(1) == dichiarati[0],
+                  f"scheduler {consigliato.group(1)!r} vs workflow {dichiarati[0]!r}")
+            ore = set(consigliato.group(1).split()[1].split(","))
+            check("e copre le due ore in cui gira l'AI (09 e 21 UTC)",
+                  {"9", "21"} <= ore, f"ore coperte: {sorted(ore)}")
+
     with open(os.path.join(RADICE, ".gitattributes"), encoding="utf-8") as f:
         attributi = f.read()
     check("git ha l'ordine di non fondere i file generati",
