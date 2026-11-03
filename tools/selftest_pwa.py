@@ -267,24 +267,43 @@ def main() -> int:
     check("il ciclo nel cloud la rigenera, cioe' l'autore unico esiste",
           "--cartella sito" in yml)
 
-    # L'orario del ciclo con AI e' scritto in DUE posti: fra i cron e nel
-    # confronto che decide se usare il modello. Spostarne uno e dimenticare
-    # l'altro non rompe niente in modo visibile: il ciclo gira all'ora nuova
-    # ma prende il ramo "senza AI", e le analisi restano del solo calcolo
-    # senza che nessuno lo dichiari. E' il tipo di difetto che si scopre un
-    # mese dopo guardando perche' il modello non risponde mai.
-    dichiarati = set(re.findall(r"(?m)^\s*-\s*cron:\s*'([^']+)'", yml))
-    confrontati = set(re.findall(r"github\.event\.schedule\s*\}\}\"?\s*=\s*\"([^\"]+)\"", yml))
-    check("ci sono cron dichiarati", bool(dichiarati), str(sorted(dichiarati)))
-    check("ogni orario confrontato nel codice e' un cron che esiste davvero",
-          confrontati <= dichiarati,
-          f"orfani: {sorted(confrontati - dichiarati)}" if confrontati - dichiarati
-          else f"{len(confrontati)} confronto/i, tutti validi")
-    check("il ciclo non dipende dal solo cron, che GitHub non garantisce",
-          re.search(r"(?m)^\s*push:", yml) is not None,
-          "serve anche un innesco su push: lo scheduler non e' mai partito")
+    # L'ORA DELL'AI IN UN POSTO SOLO. Era scritta in due - fra i cron e nel
+    # confronto che decideva se usare il modello - e spostarne uno solo
+    # avrebbe fatto girare il ciclo con AI prendendo il ramo senza AI, in
+    # silenzio. Ora si legge dall'orologio, e quel confronto non deve tornare.
+    check("l'ora dell'AI non si deduce piu' da quale cron e' scattato",
+          "github.event.schedule" not in yml,
+          "confrontare la stringa del cron rimette l'orario in due posti")
+    check("si legge dall'orologio", "date -u +%H" in yml)
+    check("e il fine settimana resta escluso", "date -u +%u" in yml)
+
+    dichiarati = re.findall(r"(?m)^\s*-\s*cron:\s*'([^']+)'", yml)
+    check("un solo cron, ogni due ore", len(dichiarati) == 1, str(dichiarati))
+
+    # TRE INNESCHI, perche' quello di GitHub non basta: misurato, arriva in
+    # ritardo di ore e salta le fasce.
+    check("c'e' l'innesco su push, per vedere subito le proprie modifiche",
+          re.search(r"(?m)^\s*push:", yml) is not None)
     check("e il push non rincorre i commit del ciclo stesso",
           "paths-ignore" in yml and "'sito/**'" in yml)
+    check("c'e' l'innesco per lo scheduler esterno",
+          "repository_dispatch" in yml and "types: [ciclo]" in yml,
+          "serve: la cadenza la decide Cloudflare, non GitHub")
+
+    # Lo scheduler esterno deve chiedere esattamente l'evento che il workflow
+    # ascolta: due nomi diversi e il cron gira a vuoto senza errori.
+    sched = os.path.join(RADICE, "tools", "scheduler-cloudflare.js")
+    check("lo scheduler esterno e' nel progetto", os.path.exists(sched))
+    if os.path.exists(sched):
+        with open(sched, encoding="utf-8") as f:
+            js = f.read()
+        check("chiede lo stesso evento che il workflow ascolta",
+              "event_type: 'ciclo'" in js)
+        check("si presenta con uno User-Agent, che GitHub pretende",
+              "User-Agent" in js and "USER_AGENT" in js)
+        check("non decide lui se usare l'AI: quella sta in un posto solo",
+              "con_ai" not in js,
+              "deciderlo anche qui rimetterebbe l'orario in due posti")
 
     with open(os.path.join(RADICE, ".gitattributes"), encoding="utf-8") as f:
         attributi = f.read()

@@ -159,6 +159,20 @@ profilo, e provare le modifiche prima di mandarle online con `git push`.
 | ogni push sul codice | solo calcolo | una modifica si vede online subito |
 | sabato e domenica | niente AI | borse chiuse: i prezzi non cambiano |
 
+**Chi tira la leva.** La cadenza la decide lo *scheduler esterno* su
+Cloudflare (sezione sotto); i cron di GitHub sono la rete di sicurezza, e il
+push serve a vedere subito le proprie modifiche. Tre inneschi diversi che
+chiedono la stessa cosa.
+
+**Chi decide se usare l'AI**, invece, è uno solo: il workflow, che guarda
+l'ora dell'orologio. Non lo decide il cron che è scattato, e non lo decide lo
+scheduler: così quell'orario è scritto in un posto e uno soltanto. Prima era
+in due, e c'era il modo di spostarne uno lasciando l'altro — con il risultato
+di un ciclo che gira «con AI» senza usarla, senza dirlo a nessuno. Un effetto
+collaterale buono: un ciclo arrivato in ritardo di sei ore non interroga più
+il modello alle tre di notte su mercati chiusi, perché guarda che ore sono
+davvero.
+
 Gli orari nel file sono in UTC (`.github/workflows/ciclo.yml`): d'inverno
 l'Italia è un'ora avanti, d'estate due.
 
@@ -170,12 +184,72 @@ ore, mentre i lanci a mano riuscivano al primo colpo. Da qui due scelte: i
 minuti spostati a `:23`, fuori dall'inizio dell'ora dove la coda è più lunga,
 e un secondo innesco `push` che non dipende dallo scheduler.
 
-Se un giorno anche così i giri programmati non arrivassero, la via d'uscita
-esiste e non passa da GitHub: uno *scheduler esterno* che chiama l'API di
-GitHub per lanciare il workflow — un Cron Trigger di Cloudflare Workers
-(sei già su Cloudflare, e i cron sono nel piano gratuito) oppure un servizio
-come cron-job.org. Serve un token con permesso di avviare i workflow, ed è
-l'unico modo di avere una cadenza garantita.
+### Lo scheduler esterno
+
+**Lo scheduler di GitHub non tiene la cadenza, e non è un'opinione: è
+misurato su questo repository.** Con i cron ai minuti `:05` non è partito
+niente per cinque ore. Spostati a `:23` hanno cominciato a partire, ma con
+ritardi fino a **sei ore** e fasce saltate: il ciclo con AI delle 21:23 è
+arrivato alle 03:13 del giorno dopo. GitHub lo dichiara nella sua
+documentazione — l'evento `schedule` è *best effort*, viene accodato e nei
+momenti di carico scartato — e non c'è niente da sistemare dall'interno.
+
+Quindi la cadenza la decide **Cloudflare**, che per i cron è affidabile, e
+GitHub esegue soltanto. Serve una volta, e non richiede di installare niente
+sul computer (`npm` su questa rete è bloccato, e il pannello di Cloudflare
+non ne ha bisogno).
+
+**1. Il token su GitHub.** Settings del tuo account → Developer settings →
+Personal access tokens → **Fine-grained tokens** → Generate new token.
+
+| | |
+|---|---|
+| Repository access | *Only select repositories* → `Market-Scout` |
+| Permissions → Repository | **Contents: Read and write** — basta questo |
+| Expiration | quanto vuoi; alla scadenza il ciclo si ferma e lo rifai |
+
+Copialo subito: non si rivede più. Serve `Contents` e non `Actions` perché
+l'evento che usiamo è `repository_dispatch`, che conta come scrittura sui
+contenuti.
+
+**2. Il Worker su Cloudflare.** Dashboard → *Workers & Pages* → **Create
+application** → *Create Worker* → dagli un nome (per esempio
+`market-scout-sveglia`) → **Deploy**. Poi *Edit code*: cancella tutto e
+incolla il contenuto di [tools/scheduler-cloudflare.js](tools/scheduler-cloudflare.js).
+Salva e distribuisci.
+
+**3. Il token nel Worker.** Settings del Worker → *Variables and Secrets* →
+Add → tipo **Secret**, nome **`GITHUB_TOKEN`**, valore il token del passo 1.
+Deve essere *Secret* e non *Text*: un Text si rilegge dal pannello.
+
+**4. Gli orari.** Settings del Worker → *Trigger Events* → **Add Cron
+Trigger**, e metti:
+
+```
+23 */2 * * *
+```
+
+Ogni due ore ai minuti :23, in UTC. Non serve distinguere i cicli con AI da
+quelli senza: **quella scelta sta solo nel workflow**, che guarda l'ora.
+Metterla anche qui rimetterebbe l'orario in due posti, ed è l'errore che
+questo progetto ha già fatto una volta.
+
+**5. La prova, senza aspettare due ore.** Apri l'indirizzo del Worker nel
+browser (`https://market-scout-sveglia.<tuo-nome>.workers.dev`). Risponde in
+JSON:
+
+```json
+{ "ok": true, "stato": 204, "detto": "GitHub ha accettato: il ciclo parte" }
+```
+
+Su Actions deve comparire un run con evento `repository_dispatch`. Se invece
+leggi `"stato": 404`, il token non ha il permesso di scrittura su questo
+repository — è quasi sempre quello, non un repository mancante.
+
+I cron di GitHub **restano** come rete di sicurezza. Se arrivano in ritardo e
+il ciclo è già girato, il secondo non trova niente da pubblicare e non
+pubblica: un giro in più costa due minuti, e su un repository pubblico i
+minuti sono illimitati.
 
 ### Che cosa si rinnova davvero, e ogni quanto
 
