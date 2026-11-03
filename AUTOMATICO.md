@@ -263,9 +263,19 @@ tipo di dato scade quando ha senso che scada (`engine/providers.py`, `TTL_S`).
 
 | Dato | Scade dopo | Perché |
 |---|---|---|
-| Prezzi e andamento | 90 minuti | si muovono durante la seduta: è il dato che vedi cambiare |
+| Prezzi e andamento | 60 minuti | si muovono durante la seduta: è il dato che vedi cambiare. Sta sotto la metà della cadenza di proposito — vedi sotto |
 | Notizie | 3 ore | arrivano durante il giorno, ma non ogni ora |
 | Bilanci societari | fine giornata | sono trimestrali: chiederli più spesso è spreco |
+
+**Perché 60 minuti e non 90, con cicli ogni due ore.** Sembrava che 90
+bastasse, e non bastava: un ciclo partito 80 minuti dopo il precedente ha
+trovato i prezzi ancora validi, non ha scaricato niente e — correttamente —
+non ha pubblicato. La pagina è rimasta ferma per un'altra fascia, cioè quasi
+due ore e mezza, mentre il ciclo girava regolarmente e in 24 secondi: run
+verde, nessun errore, niente da vedere in nessun log. La regola che ne è
+uscita è che **la scadenza non deve superare la metà della cadenza**, così
+qualunque ciclo che arrivi fino a un'ora prima o dopo trova i prezzi scaduti
+e li rinnova. Un controllo automatico la verifica (`selftest_dati.py`).
 
 Per cambiare la freschezza dei prezzi senza toccare il codice c'è
 `DATI_TTL_MIN` (minuti). Un valore basso rende i prezzi più vivi e moltiplica

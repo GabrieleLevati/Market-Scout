@@ -14,7 +14,7 @@ Il sistema è fatto di **due pezzi che non si parlano mai in diretta**.
    ────────────────────────────────────                 ──────────────────────
    1. scarica prezzi, bilanci, notizie  ──┐
       (Yahoo Finance, cache in              │
-       .data_cache\: prezzi 90 minuti,      │
+       .data_cache\: prezzi 60 minuti,      │
        notizie 3 ore, bilanci un giorno)    │
    2. calcola gli indicatori                │
       (RSI, MACD, medie, ADX, rischio)      │

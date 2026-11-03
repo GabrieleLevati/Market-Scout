@@ -17,7 +17,7 @@ Nessun dato di analisti: non chiediamo rating né target price, perché il valor
 lo stima il sistema (`valuation.py`) e il giudizio lo dà Gemini.
 
 Tutto passa da una cache su disco (`.data_cache/`) che scade per tipo di dato:
-i prezzi dopo 90 minuti, le notizie dopo tre ore, i bilanci alla fine della
+i prezzi dopo un'ora, le notizie dopo tre, i bilanci alla fine della
 giornata. Vedi `TTL_S` qui sotto per il perche' di quei tempi.
 """
 
@@ -53,8 +53,20 @@ MIN_BARS = 260              # sedute minime per calcolare EMA200 e un anno di st
 # I tempi non sono una preferenza: seguono quanto spesso quel dato cambia
 # davvero. Chiedere i bilanci ogni due ore sarebbe spreco puro, e chiedere i
 # prezzi una volta al giorno e' quello che aveva questo difetto.
+# LA SCADENZA DEI PREZZI DEVE STARE SOTTO LA CADENZA DEI CICLI, con margine.
+# Era 90 minuti con cicli ogni 120, e sembrava bastare. Non bastava: un ciclo
+# partito 80 minuti dopo il precedente ha trovato i prezzi ancora validi, non
+# ha scaricato niente e - correttamente - non ha pubblicato. Risultato: la
+# pagina e' rimasta ferma per un'altra fascia, cioe' quasi due ore e mezza,
+# mentre il ciclo girava regolarmente e in 24 secondi. Un guasto invisibile:
+# run verde, niente da pubblicare, nessun errore da nessuna parte.
+#
+# Con 60 minuti ogni ciclo della cadenza trova i prezzi scaduti e li rinnova,
+# e restano fuori solo i doppioni ravvicinati - le due passate dentro lo
+# stesso ciclo, che e' esattamente quello che la cache deve evitare.
+# selftest_dati.py verifica che questo numero resti sotto la cadenza.
 TTL_S = {
-    "chart": 90 * 60,       # i prezzi si muovono durante la seduta
+    "chart": 60 * 60,       # i prezzi si muovono durante la seduta
     "news": 180 * 60,       # le notizie arrivano, ma non ogni ora
     "statements": None,     # i bilanci sono trimestrali: dentro la giornata mai
 }

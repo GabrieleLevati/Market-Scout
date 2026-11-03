@@ -212,11 +212,53 @@ def main() -> int:
         check("non tocca i file che non portano una data", "senza_data.json" in restano,
               str(restano))
 
+        print("\n8b. La scadenza dei prezzi deve stare sotto la cadenza dei cicli")
+        # IL DIFETTO, visto in produzione e invisibile da ogni altra parte.
+        # Scadenza 90 minuti, cicli ogni 120: un ciclo partito 80 minuti dopo
+        # il precedente ha trovato i prezzi ancora validi, non ha scaricato
+        # niente e - correttamente - non ha pubblicato. La pagina e' rimasta
+        # ferma per un'altra fascia. Run verde, 24 secondi, nessun errore:
+        # l'unico modo di accorgersene era guardare l'orologio sul telefono.
+        import re as _re
+        yml = Path(providers.__file__).resolve().parent.parent \
+            / ".github" / "workflows" / "ciclo.yml"
+        testo_yml = yml.read_text(encoding="utf-8")
+        cron = _re.findall(r"(?m)^\s*-\s*cron:\s*'([^']+)'", testo_yml)
+        check("il workflow dichiara la cadenza in un cron solo", len(cron) == 1, str(cron))
+        if cron:
+            ore = sorted(int(h) for h in cron[0].split()[1].split(","))
+            # la distanza minima fra due fasce, in minuti: e' la cadenza vera
+            salti = [(b - a) * 60 for a, b in zip(ore, ore[1:])] or [24 * 60]
+            cadenza = min(salti)
+            check("fra due cicli passano due ore", cadenza == 120, f"{cadenza} minuti")
+            check("e i prezzi scadono PRIMA che arrivi il ciclo dopo",
+                  ttl_veri["chart"] / 60 < cadenza,
+                  f"scadenza {int(ttl_veri['chart']/60)} min, cadenza {cadenza} min")
+            # NON "un po' sotto": al massimo META' della cadenza. Il primo
+            # controllo che avevo scritto chiedeva mezz'ora di margine, e col
+            # valore vecchio (90 su 120) passava - cioe' non avrebbe colto il
+            # difetto che stava correggendo. Il caso reale era un ciclo
+            # arrivato 40 minuti in anticipo: con la meta' della cadenza,
+            # qualunque ciclo che arrivi fino a un'ora prima o dopo trova i
+            # prezzi scaduti e li rinnova.
+            minuti = ttl_veri["chart"] / 60
+            check("e non supera la META' della cadenza",
+                  minuti <= cadenza / 2,
+                  f"scadenza {int(minuti)} min, meta' della cadenza "
+                  f"{int(cadenza / 2)} min: oltre, un ciclo in anticipo "
+                  f"trova la cache valida e non pubblica")
+
         print("\n9. Il tempo si puo' cambiare senza toccare il codice")
         check("la tabella e' esposta e modificabile",
               isinstance(providers.TTL_S, dict) and "chart" in providers.TTL_S)
-        check("il valore di partenza per i prezzi e' 90 minuti",
-              ttl_veri["chart"] == 90 * 60, f'{ttl_veri["chart"]}s')
+        # Il numero non si fissa qui: il vincolo vero e' il rapporto con la
+        # cadenza dei cicli, verificato nel gruppo 8b. Un controllo che
+        # pretende "90 minuti" costringe a cambiare due file per cambiare
+        # un'impostazione, e quando e' servito farlo e' diventato un test
+        # rosso da aggiustare invece di una conferma.
+        check("i prezzi hanno una scadenza, e ragionevole",
+              10 * 60 <= ttl_veri["chart"] <= 180 * 60,
+              f'{int(ttl_veri["chart"] / 60)} minuti')
         check("c'e' la variabile d'ambiente, documentata nel modulo",
               "DATI_TTL_MIN" in Path(providers.__file__).read_text(encoding="utf-8"))
     finally:
