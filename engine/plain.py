@@ -158,17 +158,37 @@ def _method_in_words(val: dict) -> str:
     return f"{how} {who}{sure}".strip()
 
 
+MERCATO_IN_PAROLE = {
+    "USA": "Si scambia negli Stati Uniti.",
+    "Europa": "Si scambia in Europa.",
+    "Asia": "Si scambia in Asia.",
+    "Global": "Si scambia in tutto il mondo.",
+}
+
+
 def _what_is_it(asset: dict) -> str:
-    where = {"USA": "quotata negli Stati Uniti", "Europa": "quotata in Europa",
-             "Asia": "quotata in Asia", "Global": "scambiata in tutto il mondo"}[asset["market"]]
-    desc = asset["description"] or f"{asset['name']}, {asset['sector'].lower()}."
-    clause = CLASS_IN_WORDS.get(asset["asset_class"], asset["asset_class"])
-    # se la descrizione dice già di che cosa si tratta, non ripeterlo
-    noun = clause.split(",")[0].replace("un'", "").replace("un ", "").replace("una ", "")
-    if noun.lower() in desc.lower():
-        where = where.replace("quotata", "si scambia").replace("scambiata", "si scambia")
-        return f"{desc} {where[0].upper() + where[1:]}."
-    return f"{desc} È {clause}, {where}."
+    """Che cosa fa questo strumento, in una frase, più il mercato.
+
+    NON spiega che cos'è un'azione o un ETF. Lo faceva - chiudeva ogni
+    descrizione con "È un'azione, cioè una piccola parte di un'azienda,
+    quotata in Asia" - e letto una volta è utile, letto diciassette volte di
+    fila su diciassette card è rumore che allontana dall'unica frase che
+    conta: che cosa fa quell'azienda. La tipologia resta dichiarata due volte
+    altrove, nella riga sotto il nome e fra i dati sul retro della card.
+
+    Il mercato invece resta, perché cambia da strumento a strumento ed è una
+    delle prime cose che si vogliono sapere.
+    """
+    desc = (asset.get("description") or "").strip()
+    if not desc:
+        # Nessuna descrizione scritta per questo strumento: si dice il minimo
+        # vero (nome e settore) invece di inventare. Il controllo automatico
+        # conta quanti sono in questo stato, perché e' un debito da chiudere,
+        # non una condizione normale.
+        desc = f"{asset['name']}, {asset['sector'].lower()}."
+    if not desc.endswith((".", "!", "?")):
+        desc += "."
+    return f"{desc} {MERCATO_IN_PAROLE.get(asset['market'], '')}".strip()
 
 
 def _why_now(asset: dict, analysis: dict, triggers: list[dict]) -> list[dict]:

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from .descrizioni import DESCRIZIONI
 from .indicators import snapshot
 from .providers import DataError, Yahoo, derive_fundamentals, statement_currency
 from .universe import CLASS_IN_WORDS, DESCRIPTIONS, FX_TO_EUR
@@ -368,7 +369,14 @@ def peer_for_label(asset: dict, peers: dict) -> dict | None:
 
 
 def _description(symbol: str) -> str:
-    return DESCRIPTIONS.get(DESCRIPTION_ALIASES.get(symbol, symbol), "")
+    """La frase che dice che cosa fa questo strumento.
+
+    Prima le descrizioni dell'universo vero (engine/descrizioni.py), poi
+    quelle della demo: le seconde sono rimaste per i pochi simboli che le due
+    liste hanno in comune, e cambiarle avrebbe cambiato anche la demo.
+    """
+    chiave = DESCRIPTION_ALIASES.get(symbol, symbol)
+    return DESCRIZIONI.get(symbol) or DESCRIPTIONS.get(chiave, "")
 
 
 def _earnings_from_fundamentals(f: dict) -> dict:

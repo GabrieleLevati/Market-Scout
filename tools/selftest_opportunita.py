@@ -58,6 +58,62 @@ def analisi(punteggio: int, valore: float | None = 120.0) -> dict:
     }
 
 
+def controlla_descrizioni() -> None:
+    """La riga sotto il nome: che cosa fa l'azienda, e niente ripetizioni.
+
+    Tre cose che non si vedono leggendo il codice e si vedono solo in pagina:
+    uno strumento senza descrizione (ripiega su "Nome, settore." e non dice
+    niente), un accento scritto all'ASCII (in pagina si legge "piu'", perche'
+    in questo progetto i COMMENTI si scrivono senza accenti e la mano ci
+    prende l'abitudine), e il ritorno della spiegazione di che cos'e'
+    un'azione, che era proprio il rumore da togliere.
+    """
+    import re
+
+    from engine.descrizioni import DESCRIZIONI
+    from engine.plain import _what_is_it
+    from engine.real_universe import REAL_SPECS, _description
+
+    print("\n9. La riga che dice che cosa fa lo strumento")
+    senza = [s[0] for s in REAL_SPECS if not _description(s[0])]
+    check("ogni strumento dell'universo ha la sua descrizione", not senza,
+          f"{len(senza)} senza: {', '.join(senza[:6])}" if senza
+          else f"{len(REAL_SPECS)} strumenti, tutti coperti")
+
+    # Tutte e due le liste, non solo quella nuova: lo stesso difetto c'era
+    # gia' in due descrizioni dell'universo originale ("diabete e obesita'"),
+    # e si leggeva in pagina da sempre. Un controllo che guarda solo il codice
+    # appena scritto lascia in piedi quello vecchio.
+    from engine.universe import DESCRIPTIONS
+    ascii_accenti = re.compile(
+        r"\b(piu|perche|societa|qualita|quantita|sanita|elettricita|caffe|citta"
+        r"|puo|obesita|realta|attivita|eta|verita|novita)'")
+    tutte = dict(DESCRIPTIONS)
+    tutte.update(DESCRIZIONI)
+    male = {k: v for k, v in tutte.items() if ascii_accenti.search(v)}
+    check("nessun accento scritto all'ASCII nel testo che si legge", not male,
+          ", ".join(list(male)[:4]) if male else f"{len(tutte)} descrizioni")
+
+    lunghe = {k: len(v) for k, v in DESCRIZIONI.items() if len(v) > 150}
+    check("nessuna descrizione troppo lunga per la card", not lunghe,
+          str(lunghe) if lunghe else "al massimo "
+          + str(max(len(v) for v in DESCRIZIONI.values())) + " caratteri")
+
+    # La frase composta non deve piu' spiegare che cos'e' un'azione, ma deve
+    # ancora dire il mercato: era il punto della richiesta.
+    finto = {"name": "Qualcosa", "sector": "Tecnologia", "market": "Asia",
+             "asset_class": "Azioni", "description": "Fabbrica microchip."}
+    frase = _what_is_it(finto)
+    check("la frase dice che cosa fa", "Fabbrica microchip." in frase, frase)
+    check("e dice il mercato", "Asia" in frase, frase)
+    check("e NON spiega che cos'e' un'azione",
+          "una piccola parte di un'azienda" not in frase and "È un" not in frase,
+          frase)
+    senza_desc = _what_is_it({**finto, "description": ""})
+    check("senza descrizione dice il minimo vero, non inventa",
+          "Qualcosa" in senza_desc and "Asia" in senza_desc, senza_desc)
+
+
 def main() -> int:
     print("1. La soglia: sopra entra, sotto no, e il pari non entra")
     assets = {"AAA": asset("AAA", "Alfa"), "BBB": asset("BBB", "Beta"),
@@ -211,6 +267,8 @@ def main() -> int:
           ["Sottovalutazione", "Insider buying"], str(r["lista"][0]["reasons"]))
     check("al massimo tre, per non riempire la card",
           len(r["lista"][0]["reasons"]) == 3, str(len(r["lista"][0]["reasons"])))
+
+    controlla_descrizioni()
 
     print("\n" + ("Tutti i controlli superati." if ok_totale
                   else "ALCUNI CONTROLLI FALLITI."))

@@ -379,7 +379,7 @@ function main() {
   check('per ognuno dice come va', html.indexOf('da quando la segue') > -1);
   check('dice quando lo ha seguito', html.indexOf("Quando l'ha seguita") > -1);
   check('e che cosa conviene fare', html.indexOf('class="sr-az"') > -1);
-  check('la barra cambia titolo', html.indexOf('Che segue') > -1);
+  check('la barra cambia titolo', html.indexOf('Seguiti') > -1);
   check('si torna alle opportunita', html.indexOf('data-p="opportunita"') > -1);
   win.AMS.state.pagina = 'opportunita';
   win.AMS.render();

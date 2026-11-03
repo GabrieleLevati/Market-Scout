@@ -418,7 +418,7 @@ function navRiga() {
   const voci = [
     ['opportunita', 'Opportunità', (o.lista || []).length],
     ['osservati', 'Da approfondire', (o.osservati || []).length],
-    ['seguiti', 'Che segue', Object.keys(seguitiLeggi()).length],
+    ['seguiti', 'Seguiti', Object.keys(seguitiLeggi()).length],
   ];
   return `<nav class="navpag" aria-label="Sezioni">
     ${voci.map(([id, testo, n]) => `<button class="nv${pag === id ? ' on' : ''}"
@@ -896,7 +896,7 @@ function viewSimple() {
 
   return `
   <div class="topper" id="topper">
-    <div class="brandline">${pag === 'seguiti' ? 'Che segue'
+    <div class="brandline">${pag === 'seguiti' ? 'Seguiti'
       : pag === 'osservati' ? 'Da approfondire' : 'Opportunità'}<small>AI Market
       Scout · ${F.date(D.meta.today)}</small></div>
     <div class="spacer"></div>
