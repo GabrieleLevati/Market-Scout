@@ -1,6 +1,6 @@
 {
   "versione": 1,
-  "aggiornato": "2026-11-02T23:28:15+00:00",
+  "aggiornato": "2026-11-03T08:45:07+00:00",
   "strumenti": {
     "AMD": {
       "trovato": true,
@@ -1384,6 +1384,28 @@
         "idType": "TICKER",
         "idValue": "ALV",
         "exchCode": "GY"
+      },
+      "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
+      "scritto_il": "2026-11-03"
+    },
+    "RHHBY": {
+      "trovato": true,
+      "figi": "BBG000BQYMR4",
+      "figi_composito": "BBG000BQYMR4",
+      "figi_classe": "BBG001SF5N07",
+      "nome": "ROCHE HOLDINGS LTD-SPONS ADR",
+      "tipo": "ADR",
+      "tipo_dettaglio": "Depositary Receipt",
+      "settore_mercato": "Equity",
+      "borsa": "US",
+      "ticker_borsa": "RHHBY",
+      "quotazioni": 1,
+      "nota": "",
+      "motivo": "",
+      "richiesta": {
+        "idType": "TICKER",
+        "idValue": "RHHBY",
+        "exchCode": "US"
       },
       "fonte": "OpenFIGI (api.openfigi.com/v3/mapping)",
       "scritto_il": "2026-11-03"
